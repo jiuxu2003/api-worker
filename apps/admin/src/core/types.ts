@@ -15,17 +15,24 @@ export type Token = {
 	quota_total: number | null;
 	quota_used: number;
 	status: string;
+	created_at?: string | null;
+	updated_at?: string | null;
 };
 
 export type UsageLog = {
 	id: string;
-	model: string;
-	channel_id: string;
+	model: string | null;
+	channel_id: string | null;
 	channel_name?: string | null;
-	token_id: string;
+	token_id: string | null;
 	token_name?: string | null;
-	total_tokens: number;
-	latency_ms: number;
+	total_tokens: number | null;
+	prompt_tokens?: number | null;
+	completion_tokens?: number | null;
+	latency_ms: number | null;
+	first_token_latency_ms?: number | null;
+	stream?: boolean | number | null;
+	reasoning_effort?: string | number | null;
 	status: string;
 	created_at: string;
 };

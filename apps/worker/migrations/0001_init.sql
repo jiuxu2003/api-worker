@@ -35,6 +35,9 @@ CREATE TABLE IF NOT EXISTS usage_logs (
   completion_tokens INTEGER,
   cost REAL,
   latency_ms INTEGER,
+  first_token_latency_ms INTEGER,
+  stream INTEGER,
+  reasoning_effort TEXT,
   status TEXT,
   created_at TEXT NOT NULL
 );

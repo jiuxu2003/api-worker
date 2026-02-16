@@ -1,4 +1,5 @@
 import type { Channel, ChannelForm } from "../core/types";
+import { buildPageItems } from "../core/utils";
 
 type ChannelsViewProps = {
 	channelForm: ChannelForm;
@@ -20,6 +21,8 @@ type ChannelsViewProps = {
 	onPageSizeChange: (next: number) => void;
 	onFormChange: (patch: Partial<ChannelForm>) => void;
 };
+
+const pageSizeOptions = [10, 20, 50];
 
 /**
  * Renders the channels management view.
@@ -51,6 +54,7 @@ export const ChannelsView = ({
 	onFormChange,
 }: ChannelsViewProps) => {
 	const isEditing = Boolean(editingChannel);
+	const pageItems = buildPageItems(channelPage, channelTotalPages);
 	return (
 		<div class="space-y-5">
 			<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
@@ -69,25 +73,6 @@ export const ChannelsView = ({
 						>
 							新增渠道
 						</button>
-						<span class="rounded-full bg-stone-100 px-2.5 py-1 text-xs text-stone-500">
-							{channelTotal} 条
-						</span>
-						<label class="flex items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs text-stone-500">
-							每页
-							<select
-								class="rounded-full border border-stone-200 bg-white px-2 py-0.5 text-xs text-stone-700 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
-								value={channelPageSize}
-								onChange={(event) => {
-									onPageSizeChange(
-										Number((event.currentTarget as HTMLSelectElement).value),
-									);
-								}}
-							>
-								<option value="10">10</option>
-								<option value="20">20</option>
-								<option value="50">50</option>
-							</select>
-						</label>
 					</div>
 				</div>
 				<div class="mt-4 overflow-hidden rounded-xl border border-stone-200">
@@ -176,29 +161,65 @@ export const ChannelsView = ({
 					)}
 				</div>
 				<div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-stone-500">
-					<div>
-						第 {channelPage} / {channelTotalPages} 页 · 共 {channelTotal} 条
-					</div>
-					<div class="flex items-center gap-2">
+					<div class="flex flex-wrap items-center gap-2">
+						<span class="text-xs text-stone-500">共 {channelTotalPages} 页</span>
 						<button
-							class="h-9 rounded-full border border-stone-200 bg-white px-4 text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+							class="h-8 w-8 rounded-full border border-stone-200 bg-white text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
 							type="button"
 							disabled={channelPage <= 1}
 							onClick={() => onPageChange(Math.max(1, channelPage - 1))}
 						>
-							上一页
+							&lt;
 						</button>
+						{pageItems.map((item, index) =>
+							item === "ellipsis" ? (
+								<span class="px-2 text-xs text-stone-400" key={`e-${index}`}>
+									...
+								</span>
+							) : (
+								<button
+									class={`h-8 min-w-[32px] rounded-full border px-3 text-xs font-semibold transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
+										item === channelPage
+											? "border-stone-900 bg-stone-900 text-white shadow-md"
+											: "border-stone-200 bg-white text-stone-600 hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-md"
+									}`}
+									type="button"
+									key={item}
+									onClick={() => onPageChange(item)}
+								>
+									{item}
+								</button>
+							),
+						)}
 						<button
-							class="h-9 rounded-full border border-stone-200 bg-white px-4 text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+							class="h-8 w-8 rounded-full border border-stone-200 bg-white text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
 							type="button"
 							disabled={channelPage >= channelTotalPages}
 							onClick={() =>
 								onPageChange(Math.min(channelTotalPages, channelPage + 1))
 							}
 						>
-							下一页
+							&gt;
 						</button>
 					</div>
+					<label class="flex items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs text-stone-500">
+						每页条数
+						<select
+							class="rounded-full border border-stone-200 bg-white px-2 py-0.5 text-xs text-stone-700 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
+							value={channelPageSize}
+							onChange={(event) => {
+								onPageSizeChange(
+									Number((event.currentTarget as HTMLSelectElement).value),
+								);
+							}}
+						>
+							{pageSizeOptions.map((size) => (
+								<option key={size} value={size}>
+									{size}
+								</option>
+							))}
+						</select>
+					</label>
 				</div>
 			</div>
 			{isChannelModalOpen && (

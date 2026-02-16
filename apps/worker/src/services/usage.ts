@@ -11,6 +11,9 @@ export type UsageInput = {
 	completionTokens?: number | null;
 	cost?: number | null;
 	latencyMs?: number | null;
+	firstTokenLatencyMs?: number | null;
+	stream?: boolean | number | null;
+	reasoningEffort?: string | number | null;
 	status?: string | null;
 };
 
@@ -23,9 +26,21 @@ export async function recordUsage(
 ): Promise<void> {
 	const id = crypto.randomUUID();
 	const createdAt = nowIso();
+	const streamValue =
+		input.stream === null || input.stream === undefined
+			? null
+			: typeof input.stream === "number"
+				? input.stream
+				: input.stream
+					? 1
+					: 0;
+	const reasoningValue =
+		input.reasoningEffort === null || input.reasoningEffort === undefined
+			? null
+			: String(input.reasoningEffort);
 	await db
 		.prepare(
-			"INSERT INTO usage_logs (id, token_id, channel_id, model, request_path, total_tokens, prompt_tokens, completion_tokens, cost, latency_ms, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			"INSERT INTO usage_logs (id, token_id, channel_id, model, request_path, total_tokens, prompt_tokens, completion_tokens, cost, latency_ms, first_token_latency_ms, stream, reasoning_effort, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		)
 		.bind(
 			id,
@@ -38,6 +53,9 @@ export async function recordUsage(
 			input.completionTokens ?? 0,
 			input.cost ?? 0,
 			input.latencyMs ?? 0,
+			input.firstTokenLatencyMs ?? null,
+			streamValue,
+			reasoningValue,
 			input.status ?? "ok",
 			createdAt,
 		)

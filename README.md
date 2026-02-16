@@ -172,3 +172,4 @@ bunx wrangler d1 migrations apply DB --remote
 - `CLOUDFLARE_ACCOUNT_ID`：Cloudflare 账户 ID（若 token 无法自动识别账户）
 
 确保 `apps/worker/wrangler.toml` 中已填写 `database_id`。
+可选：仓库级 Actions 变量 `SPA_DEPLOY` 可用于控制自动部署开关（未设置时默认启用）。

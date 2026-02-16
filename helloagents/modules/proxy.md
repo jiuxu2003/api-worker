@@ -14,6 +14,7 @@
 - 支持从非流式 JSON、响应头与流式 SSE 解析 usage 字段
 - 流式请求自动补 `stream_options.include_usage=true` 以便上游返回 usage
 - 可配置失败重试轮询（响应 5xx/429 时触发）
+- 记录流式请求标记、首 token 延迟与推理强度到 usage_logs
 
 ## 依赖关系
 - `channels` / `tokens` / `usage_logs` 表

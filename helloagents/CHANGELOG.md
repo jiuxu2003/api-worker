@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### 微调
+- **[worker]**: 补齐 admin 静态目录占位以通过 wrangler assets 检查
+  - 类型: 微调（无方案包）
+  - 文件: apps/admin/dist/.gitkeep
+- **[worker]**: 修正 wrangler assets 配置并为非 API 路由回退静态资源
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/wrangler.toml:15-19, apps/worker/src/index.ts:114-127
 - **[tooling]**: 修复 bun check 脚本名称（移除尾随空格）
   - 类型: 微调（无方案包）
   - 文件: package.json
@@ -12,6 +18,12 @@
 - **[ci]**: 自动部署加入远程 D1 迁移步骤
   - 类型: 微调（无方案包）
   - 文件: .github/workflows/deploy.yml
+- **[ci]**: 对齐 CloudPaste 风格的 SPA 自动部署流程与数据库初始化
+  - 类型: 微调（无方案包）
+  - 文件: .github/workflows/deploy.yml
+- **[docs]**: 说明 SPA_DEPLOY 自动部署开关
+  - 类型: 微调（无方案包）
+  - 文件: README.md
 - **[admin-ui]**: 渠道创建移除 ID 字段并校验名称唯一
   - 类型: 微调（无方案包）
   - 文件: apps/admin/src/main.tsx:250-287, 664-829
@@ -60,6 +72,26 @@
 - **[proxy]**: 流式请求自动补 `stream_options.include_usage` 以获取 usage
   - 类型: 微调（无方案包）
   - 文件: apps/worker/src/routes/proxy.ts
+
+## [0.4.5] - 2026-02-16
+
+### 变更
+- **[admin-ui]**: 令牌管理改为列表视图并支持分页弹窗创建
+  - 方案: [202602161600_token-list-ui](archive/2026-02/202602161600_token-list-ui/)
+
+## [0.4.4] - 2026-02-16
+
+### 修复
+- **[admin-ui]**: 使用日志默认每页 50 条并修正本地时间显示
+  - 方案: [202602161433_usage-log-fixes](archive/2026-02/202602161433_usage-log-fixes/)
+- **[usage/proxy]**: 使用日志补充首 token 延迟、流式与推理强度记录
+  - 方案: [202602161433_usage-log-fixes](archive/2026-02/202602161433_usage-log-fixes/)
+
+## [0.4.3] - 2026-02-16
+
+### 变更
+- **[admin-ui]**: 使用日志支持分页与指标拆分展示
+  - 方案: [202602161355_usage-view-metrics](archive/2026-02/202602161355_usage-view-metrics/)
 
 ## [0.4.2] - 2026-02-16
 

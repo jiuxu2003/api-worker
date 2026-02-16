@@ -6,6 +6,11 @@ export type NormalizedUsage = {
 	completionTokens: number;
 };
 
+export type StreamUsage = {
+	usage: NormalizedUsage | null;
+	firstTokenLatencyMs: number | null;
+};
+
 function toNumber(value: unknown): number | null {
 	if (value === null || value === undefined) {
 		return null;
@@ -119,14 +124,16 @@ export function parseUsageFromHeaders(
 
 export async function parseUsageFromSse(
 	response: Response,
-): Promise<NormalizedUsage | null> {
+): Promise<StreamUsage> {
 	if (!response.body) {
-		return null;
+		return { usage: null, firstTokenLatencyMs: null };
 	}
 	const reader = response.body.getReader();
 	const decoder = new TextDecoder();
 	let buffer = "";
 	let usage: NormalizedUsage | null = null;
+	const start = Date.now();
+	let firstTokenLatencyMs: number | null = null;
 
 	while (true) {
 		const { done, value } = await reader.read();
@@ -141,6 +148,9 @@ export async function parseUsageFromSse(
 			if (line.startsWith("data:")) {
 				const payload = line.slice(5).trim();
 				if (payload && payload !== "[DONE]") {
+					if (firstTokenLatencyMs === null) {
+						firstTokenLatencyMs = Date.now() - start;
+					}
 					const parsed = safeJsonParse<unknown>(payload, null);
 					const candidate = parseUsageFromJson(parsed);
 					if (candidate) {
@@ -156,6 +166,9 @@ export async function parseUsageFromSse(
 	if (remaining.startsWith("data:")) {
 		const payload = remaining.slice(5).trim();
 		if (payload && payload !== "[DONE]") {
+			if (firstTokenLatencyMs === null) {
+				firstTokenLatencyMs = Date.now() - start;
+			}
 			const parsed = safeJsonParse<unknown>(payload, null);
 			const candidate = parseUsageFromJson(parsed);
 			if (candidate) {
@@ -164,5 +177,5 @@ export async function parseUsageFromSse(
 		}
 	}
 
-	return usage;
+	return { usage, firstTokenLatencyMs };
 }

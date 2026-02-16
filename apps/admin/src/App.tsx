@@ -58,11 +58,14 @@ const App = () => {
 		useState<SettingsForm>(initialSettingsForm);
 	const [channelPage, setChannelPage] = useState(1);
 	const [channelPageSize, setChannelPageSize] = useState(10);
+	const [tokenPage, setTokenPage] = useState(1);
+	const [tokenPageSize, setTokenPageSize] = useState(10);
 	const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
 	const [channelForm, setChannelForm] = useState<ChannelForm>(() => ({
 		...initialChannelForm,
 	}));
 	const [isChannelModalOpen, setChannelModalOpen] = useState(false);
+	const [isTokenModalOpen, setTokenModalOpen] = useState(false);
 
 	const updateToken = useCallback((next: string | null) => {
 		setToken(next);
@@ -104,7 +107,7 @@ const App = () => {
 	}, [apiFetch]);
 
 	const loadUsage = useCallback(async () => {
-		const result = await apiFetch<{ logs: UsageLog[] }>("/api/usage?limit=50");
+		const result = await apiFetch<{ logs: UsageLog[] }>("/api/usage?limit=200");
 		setData((prev) => ({ ...prev, usage: result.logs }));
 	}, [apiFetch]);
 
@@ -214,6 +217,15 @@ const App = () => {
 		setChannelPage(1);
 	}, []);
 
+	const handleTokenPageChange = useCallback((next: number) => {
+		setTokenPage(next);
+	}, []);
+
+	const handleTokenPageSizeChange = useCallback((next: number) => {
+		setTokenPageSize(next);
+		setTokenPage(1);
+	}, []);
+
 	const handleTabChange = useCallback((tabId: TabId) => {
 		setActiveTab(tabId);
 	}, []);
@@ -231,6 +243,11 @@ const App = () => {
 		setNotice("");
 	}, []);
 
+	const openTokenCreate = useCallback(() => {
+		setTokenModalOpen(true);
+		setNotice("");
+	}, []);
+
 	const startChannelEdit = useCallback((channel: Channel) => {
 		setEditingChannel(channel);
 		setChannelForm({
@@ -241,6 +258,10 @@ const App = () => {
 		});
 		setChannelModalOpen(true);
 		setNotice("");
+	}, []);
+
+	const closeTokenModal = useCallback(() => {
+		setTokenModalOpen(false);
 	}, []);
 
 	const handleChannelSubmit = useCallback(
@@ -314,6 +335,8 @@ const App = () => {
 				});
 				setNotice(`新令牌: ${result.token}`);
 				form.reset();
+				setTokenModalOpen(false);
+				setTokenPage(1);
 				await loadTokens();
 			} catch (error) {
 				setNotice((error as Error).message);
@@ -463,10 +486,23 @@ const App = () => {
 		const start = (channelPage - 1) * channelPageSize;
 		return data.channels.slice(start, start + channelPageSize);
 	}, [channelPage, channelPageSize, data.channels]);
+	const tokenTotal = data.tokens.length;
+	const tokenTotalPages = useMemo(
+		() => Math.max(1, Math.ceil(tokenTotal / tokenPageSize)),
+		[tokenTotal, tokenPageSize],
+	);
+	const pagedTokens = useMemo(() => {
+		const start = (tokenPage - 1) * tokenPageSize;
+		return data.tokens.slice(start, start + tokenPageSize);
+	}, [data.tokens, tokenPage, tokenPageSize]);
 
 	useEffect(() => {
 		setChannelPage((prev) => Math.min(prev, channelTotalPages));
 	}, [channelTotalPages]);
+
+	useEffect(() => {
+		setTokenPage((prev) => Math.min(prev, tokenTotalPages));
+	}, [tokenTotalPages]);
 
 	const activeLabel = useMemo(
 		() => tabs.find((tab) => tab.id === activeTab)?.label ?? "管理台",
@@ -514,7 +550,16 @@ const App = () => {
 		if (activeTab === "tokens") {
 			return (
 				<TokensView
-					tokens={data.tokens}
+					pagedTokens={pagedTokens}
+					tokenPage={tokenPage}
+					tokenPageSize={tokenPageSize}
+					tokenTotal={tokenTotal}
+					tokenTotalPages={tokenTotalPages}
+					isTokenModalOpen={isTokenModalOpen}
+					onCreate={openTokenCreate}
+					onCloseModal={closeTokenModal}
+					onPageChange={handleTokenPageChange}
+					onPageSizeChange={handleTokenPageSizeChange}
 					onSubmit={handleTokenSubmit}
 					onReveal={handleTokenReveal}
 					onToggle={handleTokenToggle}

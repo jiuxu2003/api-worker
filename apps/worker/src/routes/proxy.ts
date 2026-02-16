@@ -92,6 +92,17 @@ proxy.all("/*", tokenAuth, async (c) => {
 			? String(parsedBody.model)
 			: null;
 	const isStream = parsedBody?.stream === true;
+	const reasoningEffortRaw =
+		parsedBody && typeof parsedBody === "object"
+			? ((parsedBody as Record<string, unknown>).reasoning_effort ??
+				(parsedBody as Record<string, unknown>).reasoningEffort ??
+				null)
+			: null;
+	const reasoningEffort =
+		typeof reasoningEffortRaw === "string" ||
+		typeof reasoningEffortRaw === "number"
+			? reasoningEffortRaw
+			: null;
 	if (isStream && parsedBody && typeof parsedBody === "object") {
 		const streamOptions = (parsedBody as Record<string, unknown>)
 			.stream_options;
@@ -185,6 +196,9 @@ proxy.all("/*", tokenAuth, async (c) => {
 			requestPath: targetPath,
 			totalTokens: 0,
 			latencyMs,
+			firstTokenLatencyMs: isStream ? null : latencyMs,
+			stream: isStream,
+			reasoningEffort,
 			status: "error",
 		});
 		return jsonError(c, 502, "upstream_unavailable", "upstream_unavailable");
@@ -192,12 +206,17 @@ proxy.all("/*", tokenAuth, async (c) => {
 
 	const channelForUsage = selectedChannel ?? lastChannel;
 	if (channelForUsage && lastResponse) {
-		const record = async (usage: NormalizedUsage | null) => {
+		const record = async (
+			usage: NormalizedUsage | null,
+			firstTokenLatencyMs?: number | null,
+		) => {
 			const normalized = usage ?? {
 				totalTokens: 0,
 				promptTokens: 0,
 				completionTokens: 0,
 			};
+			const resolvedFirstTokenLatencyMs =
+				firstTokenLatencyMs ?? (isStream ? null : latencyMs);
 			await recordUsage(c.env.DB, {
 				tokenId: tokenRecord.id,
 				channelId: channelForUsage.id,
@@ -208,6 +227,9 @@ proxy.all("/*", tokenAuth, async (c) => {
 				completionTokens: normalized.completionTokens,
 				cost: 0,
 				latencyMs,
+				firstTokenLatencyMs: resolvedFirstTokenLatencyMs,
+				stream: isStream,
+				reasoningEffort,
 				status: lastResponse.ok ? "ok" : "error",
 			});
 		};
@@ -248,13 +270,19 @@ proxy.all("/*", tokenAuth, async (c) => {
 				? "header"
 				: "none";
 
-		if (isStream && !immediateUsage) {
+		if (isStream) {
 			const executionCtx = (c as { executionCtx?: ExecutionContextLike })
 				.executionCtx;
 			const task = parseUsageFromSse(lastResponse.clone())
 				.then((streamUsage) => {
-					logUsage("stream", streamUsage, streamUsage ? "sse" : "sse-none");
-					return record(streamUsage);
+					const usageValue = immediateUsage ?? streamUsage.usage;
+					const source = immediateUsage
+						? immediateSource
+						: streamUsage.usage
+							? "sse"
+							: "sse-none";
+					logUsage("stream", usageValue, source);
+					return record(usageValue, streamUsage.firstTokenLatencyMs);
 				})
 				.catch(() => undefined);
 			if (executionCtx?.waitUntil) {
@@ -264,7 +292,7 @@ proxy.all("/*", tokenAuth, async (c) => {
 			}
 		} else {
 			logUsage("immediate", immediateUsage, immediateSource);
-			await record(immediateUsage);
+			await record(immediateUsage, latencyMs);
 		}
 	}
 
