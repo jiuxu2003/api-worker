@@ -111,4 +111,19 @@ app.route("/api/group", newapiGroupRoutes);
 
 app.route("/v1", proxyRoutes);
 
+app.notFound((c) => {
+	const path = c.req.path;
+	if (
+		path === "/api" ||
+		path.startsWith("/api/") ||
+		path === "/v1" ||
+		path.startsWith("/v1/")
+	) {
+		return c.json({ error: "Not Found" }, 404);
+	}
+	const assets = (c.env as { ASSETS?: { fetch: (input: Request) => Promise<Response> } })
+		.ASSETS;
+	return assets ? assets.fetch(c.req.raw) : c.text("Not Found", 404);
+});
+
 export default app;
