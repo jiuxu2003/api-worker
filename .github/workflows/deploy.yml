@@ -12,6 +12,14 @@ on:
         description: "是否由部署控制面板触发 / triggered from deployment control panel"
         required: false
         default: "false"
+      deploy_target:
+        description: "部署目标：frontend/backend/both/auto（默认 auto）"
+        required: false
+        default: "auto"
+      apply_migrations:
+        description: "数据库迁移：true/false/auto（默认 auto，仅迁移文件变更时执行）"
+        required: false
+        default: "auto"
   repository_dispatch:
     types: [deploy-spa-button]
 
@@ -20,6 +28,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should_deploy: ${{ steps.check.outputs.should_deploy }}
+      deploy_target: ${{ steps.plan.outputs.deploy_target }}
+      apply_migrations: ${{ steps.plan.outputs.apply_migrations }}
+      deploy_ui: ${{ steps.plan.outputs.deploy_ui }}
+      deploy_worker: ${{ steps.plan.outputs.deploy_worker }}
+      should_migrate: ${{ steps.plan.outputs.should_migrate }}
+      ui_changed: ${{ steps.changes.outputs.ui_changed }}
+      worker_changed: ${{ steps.changes.outputs.worker_changed }}
+      migrations_changed: ${{ steps.changes.outputs.migrations_changed }}
     steps:
       - name: 📥 检出代码
         uses: actions/checkout@v4
@@ -50,6 +66,107 @@ jobs:
             echo "⏸️ SPA 自动部署已关闭，跳过部署"
           fi
 
+      - name: 🔎 检测变更范围
+        id: changes
+        run: |
+          echo "ui_changed=false" >> $GITHUB_OUTPUT
+          echo "worker_changed=false" >> $GITHUB_OUTPUT
+          echo "migrations_changed=false" >> $GITHUB_OUTPUT
+
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            if [[ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]]; then
+              echo "ui_changed=true" >> $GITHUB_OUTPUT
+              echo "worker_changed=true" >> $GITHUB_OUTPUT
+              echo "migrations_changed=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+
+            CHANGED=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}")
+
+            if echo "$CHANGED" | grep -q "^apps/ui/"; then
+              echo "ui_changed=true" >> $GITHUB_OUTPUT
+            fi
+            if echo "$CHANGED" | grep -q "^apps/worker/"; then
+              echo "worker_changed=true" >> $GITHUB_OUTPUT
+            fi
+            if echo "$CHANGED" | grep -q "^apps/worker/migrations/"; then
+              echo "migrations_changed=true" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: 🧭 生成部署计划
+        id: plan
+        run: |
+          event="${{ github.event_name }}"
+          deploy_target="${{ github.event.inputs.deploy_target }}"
+          apply_migrations="${{ github.event.inputs.apply_migrations }}"
+
+          if [[ "$event" == "repository_dispatch" ]]; then
+            if [[ -n "${{ github.event.client_payload.deploy_target }}" ]]; then
+              deploy_target="${{ github.event.client_payload.deploy_target }}"
+            fi
+            if [[ -n "${{ github.event.client_payload.apply_migrations }}" ]]; then
+              apply_migrations="${{ github.event.client_payload.apply_migrations }}"
+            fi
+          fi
+
+          if [[ -z "$deploy_target" ]]; then
+            deploy_target="auto"
+          fi
+          if [[ -z "$apply_migrations" ]]; then
+            apply_migrations="auto"
+          fi
+
+          ui_changed="${{ steps.changes.outputs.ui_changed }}"
+          worker_changed="${{ steps.changes.outputs.worker_changed }}"
+          migrations_changed="${{ steps.changes.outputs.migrations_changed }}"
+
+          deploy_ui="false"
+          deploy_worker="false"
+
+          case "$deploy_target" in
+            frontend)
+              deploy_ui="true"
+              deploy_worker="true"
+              ;;
+            backend)
+              deploy_ui="false"
+              deploy_worker="true"
+              ;;
+            both)
+              deploy_ui="true"
+              deploy_worker="true"
+              ;;
+            auto|*)
+              if [[ "$event" == "push" ]]; then
+                if [[ "$ui_changed" == "true" ]]; then
+                  deploy_ui="true"
+                fi
+                if [[ "$worker_changed" == "true" ]]; then
+                  deploy_worker="true"
+                fi
+              else
+                deploy_ui="true"
+                deploy_worker="true"
+              fi
+              ;;
+          esac
+
+          should_migrate="false"
+          if [[ "$apply_migrations" == "true" ]]; then
+            should_migrate="true"
+          elif [[ "$apply_migrations" == "auto" ]]; then
+            if [[ "$event" == "push" && "$migrations_changed" == "true" ]]; then
+              should_migrate="true"
+            fi
+          fi
+
+          echo "deploy_target=$deploy_target" >> $GITHUB_OUTPUT
+          echo "apply_migrations=$apply_migrations" >> $GITHUB_OUTPUT
+          echo "deploy_ui=$deploy_ui" >> $GITHUB_OUTPUT
+          echo "deploy_worker=$deploy_worker" >> $GITHUB_OUTPUT
+          echo "should_migrate=$should_migrate" >> $GITHUB_OUTPUT
+
   deploy-spa:
     needs: check-config
     if: needs.check-config.outputs.should_deploy == 'true'
@@ -64,6 +181,17 @@ jobs:
         with:
           bun-version: "1.3.9"
 
+      - name: Show deploy plan
+        run: |
+          echo "deploy_target=${{ needs.check-config.outputs.deploy_target }}"
+          echo "apply_migrations=${{ needs.check-config.outputs.apply_migrations }}"
+          echo "ui_changed=${{ needs.check-config.outputs.ui_changed }}"
+          echo "worker_changed=${{ needs.check-config.outputs.worker_changed }}"
+          echo "migrations_changed=${{ needs.check-config.outputs.migrations_changed }}"
+          echo "deploy_ui=${{ needs.check-config.outputs.deploy_ui }}"
+          echo "deploy_worker=${{ needs.check-config.outputs.deploy_worker }}"
+          echo "should_migrate=${{ needs.check-config.outputs.should_migrate }}"
+
       - name: Check if deploy button trigger
         id: check-deploy-button
         run: |
@@ -77,9 +205,11 @@ jobs:
         run: bun install
 
       - name: Build UI
+        if: needs.check-config.outputs.deploy_ui == 'true' || needs.check-config.outputs.deploy_worker == 'true'
         run: bun run --filter api-worker-ui build
 
       - name: Verify UI build
+        if: needs.check-config.outputs.deploy_ui == 'true' || needs.check-config.outputs.deploy_worker == 'true'
         run: |
           if [ ! -d "apps/ui/dist" ]; then
             echo "❌ UI 构建失败：dist 目录不存在"
@@ -95,6 +225,7 @@ jobs:
         run: bunx wrangler telemetry disable
 
       - name: Create or verify D1 Database
+        if: needs.check-config.outputs.deploy_worker == 'true' || needs.check-config.outputs.deploy_ui == 'true' || needs.check-config.outputs.should_migrate == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -129,12 +260,14 @@ jobs:
           echo "database_id=$DATABASE_ID" >> $GITHUB_ENV
 
       - name: Apply D1 migrations (remote)
+        if: needs.check-config.outputs.should_migrate == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: bunx wrangler d1 migrations apply DB --remote --config apps/worker/wrangler.toml
 
       - name: Deploy to Cloudflare Workers (SPA Mode)
+        if: needs.check-config.outputs.deploy_worker == 'true' || needs.check-config.outputs.deploy_ui == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
