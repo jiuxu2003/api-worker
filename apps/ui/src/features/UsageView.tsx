@@ -86,41 +86,41 @@ export const UsageView = ({ usage, onRefresh }: UsageViewProps) => {
 				</div>
 			</div>
 			<div class="mt-4 overflow-hidden rounded-xl border border-stone-200">
-				<div class="h-[520px] overflow-auto">
-					<table class="min-w-[1100px] w-full border-collapse text-sm">
+				<div class="h-[420px] overflow-auto sm:h-[520px]">
+					<table class="min-w-[960px] w-full border-collapse text-xs sm:text-sm">
 						<thead>
 							<tr>
-								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
+								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
 									时间
 								</th>
-								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
+								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
 									模型
 								</th>
-								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
+								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
 									渠道
 								</th>
-								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
+								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
 									令牌
 								</th>
-								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
+								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
 									输入 Tokens
 								</th>
-								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
+								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
 									输出 Tokens
 								</th>
-								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
+								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
 									用时
 								</th>
-								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
+								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
 									首 token 延迟
 								</th>
-								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
+								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
 									流式
 								</th>
-								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
+								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
 									推理强度
 								</th>
-								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
+								<th class="sticky top-0 border-b border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
 									状态
 								</th>
 							</tr>
@@ -138,37 +138,37 @@ export const UsageView = ({ usage, onRefresh }: UsageViewProps) => {
 							) : (
 								pagedUsage.map((log) => (
 									<tr class="hover:bg-stone-50" key={log.id}>
-										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
 											{formatDateTime(log.created_at)}
 										</td>
-										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
 											{log.model ?? "-"}
 										</td>
-										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
 											{log.channel_name ?? log.channel_id ?? "-"}
 										</td>
-										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
 											{log.token_name ?? log.token_id ?? "-"}
 										</td>
-										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
 											{formatTokens(log.prompt_tokens)}
 										</td>
-										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
 											{formatTokens(log.completion_tokens)}
 										</td>
-										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
 											{formatSeconds(log.latency_ms)}
 										</td>
-										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
 											{formatSeconds(log.first_token_latency_ms)}
 										</td>
-										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
 											{formatStream(log.stream)}
 										</td>
-										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
 											{log.reasoning_effort ?? "-"}
 										</td>
-										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
 											{log.status}
 										</td>
 									</tr>
@@ -178,7 +178,7 @@ export const UsageView = ({ usage, onRefresh }: UsageViewProps) => {
 					</table>
 				</div>
 			</div>
-			<div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-stone-500">
+			<div class="mt-4 flex flex-col gap-3 text-xs text-stone-500 sm:flex-row sm:items-center sm:justify-between">
 				<div class="flex flex-wrap items-center gap-2">
 					<span class="text-xs text-stone-500">共 {totalPages} 页</span>
 					<button

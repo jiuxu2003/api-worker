@@ -75,44 +75,38 @@ export const ChannelsView = ({
 						</button>
 					</div>
 				</div>
-				<div class="mt-4 overflow-hidden rounded-xl border border-stone-200">
-					<div class="grid grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_minmax(0,0.6fr)_minmax(0,1.6fr)] gap-3 bg-stone-50 px-4 py-3 text-xs uppercase tracking-widest text-stone-500">
-						<div>渠道</div>
-						<div>状态</div>
-						<div>权重</div>
-						<div>操作</div>
-					</div>
-					{pagedChannels.length === 0 ? (
-						<div class="px-4 py-10 text-center text-sm text-stone-500">
-							暂无渠道，请先创建。
-						</div>
-					) : (
-						<div class="divide-y divide-stone-100">
-							{pagedChannels.map((channel) => {
+				<div class="mt-4">
+					<div class="space-y-3 md:hidden">
+						{pagedChannels.length === 0 ? (
+							<div class="rounded-xl border border-stone-200 bg-white px-4 py-10 text-center text-sm text-stone-500">
+								暂无渠道，请先创建。
+							</div>
+						) : (
+							pagedChannels.map((channel) => {
 								const isActive = channel.status === "active";
 								return (
 									<div
-										class={`grid grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_minmax(0,0.6fr)_minmax(0,1.6fr)] items-center gap-3 px-4 py-4 text-sm ${
+										class={`rounded-xl border p-4 shadow-sm ${
 											editingChannel?.id === channel.id
-												? "bg-amber-50/60"
-												: "bg-white"
+												? "border-amber-200 bg-amber-50/60"
+												: "border-stone-200 bg-white"
 										}`}
 										key={channel.id}
 									>
-										<div class="flex min-w-0 flex-col">
-											<span class="truncate font-semibold text-stone-900">
-												{channel.name}
-											</span>
+										<div class="flex items-start justify-between gap-3">
+											<div class="min-w-0">
+												<p class="truncate text-sm font-semibold text-stone-900">
+													{channel.name}
+												</p>
+												<p
+													class="truncate text-xs text-stone-500"
+													title={channel.base_url}
+												>
+													{channel.base_url}
+												</p>
+											</div>
 											<span
-												class="truncate text-xs text-stone-500"
-												title={channel.base_url}
-											>
-												{channel.base_url}
-											</span>
-										</div>
-										<div>
-											<span
-												class={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${
+												class={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest ${
 													isActive
 														? "border-emerald-100 bg-emerald-50 text-emerald-600"
 														: "border-stone-200 bg-stone-100 text-stone-500"
@@ -121,33 +115,36 @@ export const ChannelsView = ({
 												{isActive ? "启用" : "禁用"}
 											</span>
 										</div>
-										<div class="text-sm font-semibold text-stone-700">
-											{channel.weight}
+										<div class="mt-3 flex items-center justify-between text-xs text-stone-500">
+											<span>权重</span>
+											<span class="font-semibold text-stone-700">
+												{channel.weight}
+											</span>
 										</div>
-										<div class="flex flex-wrap gap-2">
+										<div class="mt-3 grid grid-cols-2 gap-2">
 											<button
-												class="h-9 rounded-full border border-stone-200 bg-stone-100 px-3 text-xs font-semibold text-stone-900 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+												class="h-9 w-full rounded-full border border-stone-200 bg-stone-100 px-3 text-xs font-semibold text-stone-900 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
 												type="button"
 												onClick={() => onTest(channel.id)}
 											>
 												连通测试
 											</button>
 											<button
-												class="h-9 rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+												class="h-9 w-full rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
 												type="button"
 												onClick={() => onToggle(channel.id, channel.status)}
 											>
 												{isActive ? "禁用" : "启用"}
 											</button>
 											<button
-												class="h-9 rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+												class="h-9 w-full rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
 												type="button"
 												onClick={() => onEdit(channel)}
 											>
 												编辑
 											</button>
 											<button
-												class="h-9 rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-500 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+												class="h-9 w-full rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-500 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
 												type="button"
 												onClick={() => onDelete(channel.id)}
 											>
@@ -156,11 +153,96 @@ export const ChannelsView = ({
 										</div>
 									</div>
 								);
-							})}
+							})
+						)}
+					</div>
+					<div class="hidden overflow-hidden rounded-xl border border-stone-200 md:block">
+						<div class="grid grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_minmax(0,0.6fr)_minmax(0,1.6fr)] gap-3 bg-stone-50 px-4 py-3 text-xs uppercase tracking-widest text-stone-500">
+							<div>渠道</div>
+							<div>状态</div>
+							<div>权重</div>
+							<div>操作</div>
 						</div>
-					)}
+						{pagedChannels.length === 0 ? (
+							<div class="px-4 py-10 text-center text-sm text-stone-500">
+								暂无渠道，请先创建。
+							</div>
+						) : (
+							<div class="divide-y divide-stone-100">
+								{pagedChannels.map((channel) => {
+									const isActive = channel.status === "active";
+									return (
+										<div
+											class={`grid grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_minmax(0,0.6fr)_minmax(0,1.6fr)] items-center gap-3 px-4 py-4 text-sm ${
+												editingChannel?.id === channel.id
+													? "bg-amber-50/60"
+													: "bg-white"
+											}`}
+											key={channel.id}
+										>
+											<div class="flex min-w-0 flex-col">
+												<span class="truncate font-semibold text-stone-900">
+													{channel.name}
+												</span>
+												<span
+													class="truncate text-xs text-stone-500"
+													title={channel.base_url}
+												>
+													{channel.base_url}
+												</span>
+											</div>
+											<div>
+												<span
+													class={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${
+														isActive
+															? "border-emerald-100 bg-emerald-50 text-emerald-600"
+															: "border-stone-200 bg-stone-100 text-stone-500"
+													}`}
+												>
+													{isActive ? "启用" : "禁用"}
+												</span>
+											</div>
+											<div class="text-sm font-semibold text-stone-700">
+												{channel.weight}
+											</div>
+											<div class="flex flex-wrap gap-2">
+												<button
+													class="h-9 rounded-full border border-stone-200 bg-stone-100 px-3 text-xs font-semibold text-stone-900 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+													type="button"
+													onClick={() => onTest(channel.id)}
+												>
+													连通测试
+												</button>
+												<button
+													class="h-9 rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+													type="button"
+													onClick={() => onToggle(channel.id, channel.status)}
+												>
+													{isActive ? "禁用" : "启用"}
+												</button>
+												<button
+													class="h-9 rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+													type="button"
+													onClick={() => onEdit(channel)}
+												>
+													编辑
+												</button>
+												<button
+													class="h-9 rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-500 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+													type="button"
+													onClick={() => onDelete(channel.id)}
+												>
+													删除
+												</button>
+											</div>
+										</div>
+									);
+								})}
+							</div>
+						)}
+					</div>
 				</div>
-				<div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-stone-500">
+				<div class="mt-4 flex flex-col gap-3 text-xs text-stone-500 sm:flex-row sm:items-center sm:justify-between">
 					<div class="flex flex-wrap items-center gap-2">
 						<span class="text-xs text-stone-500">
 							共 {channelTotal} 条 · {channelTotalPages} 页

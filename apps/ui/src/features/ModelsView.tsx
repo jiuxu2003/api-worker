@@ -23,29 +23,31 @@ export const ModelsView = ({ models }: ModelsViewProps) => (
 				{models.length} 个模型
 			</span>
 		</div>
-		<table class="w-full border-collapse text-sm">
-			<thead>
-				<tr>
-					<th class="border-b border-stone-200 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
-						模型
-					</th>
-					<th class="border-b border-stone-200 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
-						渠道
-					</th>
-				</tr>
-			</thead>
-			<tbody>
-				{models.map((model) => (
-					<tr class="hover:bg-stone-50" key={model.id}>
-						<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
-							{model.id}
-						</td>
-						<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
-							{model.channels.map((channel) => channel.name).join(" / ")}
-						</td>
+		<div class="overflow-x-auto">
+			<table class="min-w-[420px] w-full border-collapse text-xs sm:text-sm">
+				<thead>
+					<tr>
+						<th class="border-b border-stone-200 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
+							模型
+						</th>
+						<th class="border-b border-stone-200 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
+							渠道
+						</th>
 					</tr>
-				))}
-			</tbody>
-		</table>
+				</thead>
+				<tbody>
+					{models.map((model) => (
+						<tr class="hover:bg-stone-50" key={model.id}>
+							<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
+								{model.id}
+							</td>
+							<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
+								{model.channels.map((channel) => channel.name).join(" / ")}
+							</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</div>
 	</div>
 );

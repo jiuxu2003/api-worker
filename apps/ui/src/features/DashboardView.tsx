@@ -69,36 +69,38 @@ export const DashboardView = ({ dashboard }: DashboardViewProps) => {
 							按日趋势
 						</h3>
 					</div>
-					<table class="w-full border-collapse text-sm">
-						<thead>
-							<tr>
-								<th class="border-b border-stone-200 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
-									日期
-								</th>
-								<th class="border-b border-stone-200 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
-									请求
-								</th>
-								<th class="border-b border-stone-200 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
-									Tokens
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{dashboard.byDay.map((row) => (
-								<tr class="hover:bg-stone-50" key={row.day}>
-									<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
-										{row.day}
-									</td>
-									<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
-										{row.requests}
-									</td>
-									<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
-										{row.tokens}
-									</td>
+					<div class="overflow-x-auto">
+						<table class="min-w-[520px] w-full border-collapse text-xs sm:text-sm">
+							<thead>
+								<tr>
+									<th class="border-b border-stone-200 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
+										日期
+									</th>
+									<th class="border-b border-stone-200 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
+										请求
+									</th>
+									<th class="border-b border-stone-200 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
+										Tokens
+									</th>
 								</tr>
-							))}
-						</tbody>
-					</table>
+							</thead>
+							<tbody>
+								{dashboard.byDay.map((row) => (
+									<tr class="hover:bg-stone-50" key={row.day}>
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
+											{row.day}
+										</td>
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
+											{row.requests}
+										</td>
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
+											{row.tokens}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
 				</div>
 				<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
 					<div class="mb-4 flex items-center justify-between">
@@ -106,36 +108,38 @@ export const DashboardView = ({ dashboard }: DashboardViewProps) => {
 							模型排行
 						</h3>
 					</div>
-					<table class="w-full border-collapse text-sm">
-						<thead>
-							<tr>
-								<th class="border-b border-stone-200 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
-									模型
-								</th>
-								<th class="border-b border-stone-200 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
-									请求
-								</th>
-								<th class="border-b border-stone-200 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
-									Tokens
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{dashboard.byModel.map((row) => (
-								<tr class="hover:bg-stone-50" key={row.model}>
-									<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
-										{row.model ?? "-"}
-									</td>
-									<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
-										{row.requests}
-									</td>
-									<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
-										{row.tokens}
-									</td>
+					<div class="overflow-x-auto">
+						<table class="min-w-[520px] w-full border-collapse text-xs sm:text-sm">
+							<thead>
+								<tr>
+									<th class="border-b border-stone-200 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
+										模型
+									</th>
+									<th class="border-b border-stone-200 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
+										请求
+									</th>
+									<th class="border-b border-stone-200 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
+										Tokens
+									</th>
 								</tr>
-							))}
-						</tbody>
-					</table>
+							</thead>
+							<tbody>
+								{dashboard.byModel.map((row) => (
+									<tr class="hover:bg-stone-50" key={row.model}>
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
+											{row.model ?? "-"}
+										</td>
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
+											{row.requests}
+										</td>
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
+											{row.tokens}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
 				</div>
 			</div>
 			<div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -145,39 +149,41 @@ export const DashboardView = ({ dashboard }: DashboardViewProps) => {
 							渠道贡献
 						</h3>
 					</div>
-					<table class="w-full border-collapse text-sm">
-						<thead>
-							<tr>
-								<th class="border-b border-stone-200 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
-									渠道
-								</th>
-								<th class="border-b border-stone-200 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
-									请求
-								</th>
-								<th class="border-b border-stone-200 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
-									Tokens
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{dashboard.byChannel.map((row) => (
-								<tr
-									class="hover:bg-stone-50"
-									key={row.channel_name ?? "unknown"}
-								>
-									<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
-										{row.channel_name ?? "-"}
-									</td>
-									<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
-										{row.requests}
-									</td>
-									<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
-										{row.tokens}
-									</td>
+					<div class="overflow-x-auto">
+						<table class="min-w-[520px] w-full border-collapse text-xs sm:text-sm">
+							<thead>
+								<tr>
+									<th class="border-b border-stone-200 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
+										渠道
+									</th>
+									<th class="border-b border-stone-200 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
+										请求
+									</th>
+									<th class="border-b border-stone-200 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
+										Tokens
+									</th>
 								</tr>
-							))}
-						</tbody>
-					</table>
+							</thead>
+							<tbody>
+								{dashboard.byChannel.map((row) => (
+									<tr
+										class="hover:bg-stone-50"
+										key={row.channel_name ?? "unknown"}
+									>
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
+											{row.channel_name ?? "-"}
+										</td>
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
+											{row.requests}
+										</td>
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
+											{row.tokens}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
 				</div>
 				<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
 					<div class="mb-4 flex items-center justify-between">
@@ -185,36 +191,41 @@ export const DashboardView = ({ dashboard }: DashboardViewProps) => {
 							令牌贡献
 						</h3>
 					</div>
-					<table class="w-full border-collapse text-sm">
-						<thead>
-							<tr>
-								<th class="border-b border-stone-200 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
-									令牌
-								</th>
-								<th class="border-b border-stone-200 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
-									请求
-								</th>
-								<th class="border-b border-stone-200 px-3 py-2.5 text-left text-xs uppercase tracking-widest text-stone-500">
-									Tokens
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{dashboard.byToken.map((row) => (
-								<tr class="hover:bg-stone-50" key={row.token_name ?? "unknown"}>
-									<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
-										{row.token_name ?? "-"}
-									</td>
-									<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
-										{row.requests}
-									</td>
-									<td class="border-b border-stone-200 px-3 py-2.5 text-left text-sm text-stone-700">
-										{row.tokens}
-									</td>
+					<div class="overflow-x-auto">
+						<table class="min-w-[520px] w-full border-collapse text-xs sm:text-sm">
+							<thead>
+								<tr>
+									<th class="border-b border-stone-200 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
+										令牌
+									</th>
+									<th class="border-b border-stone-200 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
+										请求
+									</th>
+									<th class="border-b border-stone-200 px-3 py-2.5 text-left text-[10px] uppercase tracking-widest text-stone-500 sm:text-xs">
+										Tokens
+									</th>
 								</tr>
-							))}
-						</tbody>
-					</table>
+							</thead>
+							<tbody>
+								{dashboard.byToken.map((row) => (
+									<tr
+										class="hover:bg-stone-50"
+										key={row.token_name ?? "unknown"}
+									>
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
+											{row.token_name ?? "-"}
+										</td>
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
+											{row.requests}
+										</td>
+										<td class="border-b border-stone-200 px-3 py-2.5 text-left text-xs text-stone-700 sm:text-sm">
+											{row.tokens}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
 				</div>
 			</div>
 		</div>
