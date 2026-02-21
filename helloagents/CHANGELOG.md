@@ -4,6 +4,9 @@
 
 ### 微调
 
+- **[ci]**: push 变更检测在 before 提交缺失时按全量变更处理并拉全历史
+  - 类型: 微调（无方案包）
+  - 文件: .github/workflows/deploy.yml:45-100
 - **[admin-ui]**: 处理剪贴板异常时忽略未使用的错误变量
   - 类型: 微调（无方案包）
   - 文件: apps/ui/src/App.tsx:500
