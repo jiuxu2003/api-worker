@@ -6,7 +6,7 @@
     "apps/*"
   ],
   "scripts": {
-    "dev:worker": "bun --filter api-worker dev",
+    "dev:worker": "bun --cwd apps/worker dev",
     "dev:ui": "bun --filter api-worker-ui dev -- --port 4173",
     "test": "vitest",
     "format": "bunx --bun biome format --write .",
@@ -24,5 +24,3 @@
     "wrangler": "4"
   }
 }
-
-

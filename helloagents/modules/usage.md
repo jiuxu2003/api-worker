@@ -13,6 +13,7 @@
 - 保留天数可配置，查询时触发清理
 - 查询结果附带渠道与令牌名称
 - usage_logs 记录输入/输出 tokens、首 token 延迟、流式标记与推理强度
+- 推理强度来自请求体 `reasoning` / `reasoning_effort` 字段
 
 ## 依赖关系
 - `usage_logs` 表

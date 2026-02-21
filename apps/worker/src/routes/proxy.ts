@@ -9,6 +9,7 @@ import {
 import { recordUsage } from "../services/usage";
 import { jsonError } from "../utils/http";
 import { safeJsonParse } from "../utils/json";
+import { extractReasoningEffort } from "../utils/reasoning";
 import { normalizeBaseUrl } from "../utils/url";
 import {
 	type NormalizedUsage,
@@ -84,6 +85,7 @@ async function sleep(ms: number): Promise<void> {
 proxy.all("/*", tokenAuth, async (c) => {
 	const tokenRecord = c.get("tokenRecord") as TokenRecord;
 	let requestText = await c.req.text();
+	const originalRequestText = requestText;
 	const parsedBody = requestText
 		? safeJsonParse<Record<string, unknown> | null>(requestText, null)
 		: null;
@@ -92,17 +94,8 @@ proxy.all("/*", tokenAuth, async (c) => {
 			? String(parsedBody.model)
 			: null;
 	const isStream = parsedBody?.stream === true;
-	const reasoningEffortRaw =
-		parsedBody && typeof parsedBody === "object"
-			? ((parsedBody as Record<string, unknown>).reasoning_effort ??
-				(parsedBody as Record<string, unknown>).reasoningEffort ??
-				null)
-			: null;
-	const reasoningEffort =
-		typeof reasoningEffortRaw === "string" ||
-		typeof reasoningEffortRaw === "number"
-			? reasoningEffortRaw
-			: null;
+	const reasoningEffort = extractReasoningEffort(parsedBody);
+	let mutatedStreamOptions = false;
 	if (isStream && parsedBody && typeof parsedBody === "object") {
 		const streamOptions = (parsedBody as Record<string, unknown>)
 			.stream_options;
@@ -110,10 +103,12 @@ proxy.all("/*", tokenAuth, async (c) => {
 			(parsedBody as Record<string, unknown>).stream_options = {
 				include_usage: true,
 			};
+			mutatedStreamOptions = true;
 		} else if (
 			(streamOptions as Record<string, unknown>).include_usage !== true
 		) {
 			(streamOptions as Record<string, unknown>).include_usage = true;
+			mutatedStreamOptions = true;
 		}
 		requestText = JSON.stringify(parsedBody);
 	}
@@ -136,10 +131,16 @@ proxy.all("/*", tokenAuth, async (c) => {
 
 	const ordered = createWeightedOrder(candidates);
 	const targetPath = c.req.path;
+	const fallbackPath =
+		targetPath.toLowerCase() === "/v1/responses" ? "/responses" : targetPath;
+	const querySuffix = c.req.url.includes("?")
+		? `?${c.req.url.split("?")[1]}`
+		: "";
 	const retryRounds = Math.max(1, Number(c.env.PROXY_RETRY_ROUNDS ?? "1"));
 	const retryDelayMs = Math.max(0, Number(c.env.PROXY_RETRY_DELAY_MS ?? "200"));
 	let lastResponse: Response | null = null;
 	let lastChannel: ChannelRecord | null = null;
+	let lastRequestPath = targetPath;
 	const start = Date.now();
 	let selectedChannel: ChannelRecord | null = null;
 
@@ -148,7 +149,8 @@ proxy.all("/*", tokenAuth, async (c) => {
 		let shouldRetry = false;
 		for (const channel of ordered) {
 			lastChannel = channel;
-			const target = `${normalizeBaseUrl(channel.base_url)}${targetPath}${c.req.url.includes("?") ? `?${c.req.url.split("?")[1]}` : ""}`;
+			const baseUrl = normalizeBaseUrl(channel.base_url);
+			const target = `${baseUrl}${targetPath}${querySuffix}`;
 			const headers = new Headers(c.req.header());
 			headers.set("Authorization", `Bearer ${channel.api_key}`);
 			headers.set("x-api-key", String(channel.api_key));
@@ -156,13 +158,30 @@ proxy.all("/*", tokenAuth, async (c) => {
 			headers.delete("content-length");
 
 			try {
-				const response = await fetch(target, {
+				let response = await fetch(target, {
 					method: c.req.method,
 					headers,
 					body: requestText || undefined,
 				});
+				let responsePath = targetPath;
+				if (
+					(response.status === 400 || response.status === 404) &&
+					fallbackPath !== targetPath
+				) {
+					const fallbackTarget = `${baseUrl}${fallbackPath}${querySuffix}`;
+					const fallbackBody = mutatedStreamOptions
+						? originalRequestText
+						: requestText;
+					response = await fetch(fallbackTarget, {
+						method: c.req.method,
+						headers,
+						body: fallbackBody || undefined,
+					});
+					responsePath = fallbackPath;
+				}
 
 				lastResponse = response;
+				lastRequestPath = responsePath;
 				if (response.ok) {
 					selectedChannel = channel;
 					break;
@@ -193,7 +212,7 @@ proxy.all("/*", tokenAuth, async (c) => {
 		await recordUsage(c.env.DB, {
 			tokenId: tokenRecord.id,
 			model,
-			requestPath: targetPath,
+			requestPath: lastRequestPath,
 			totalTokens: 0,
 			latencyMs,
 			firstTokenLatencyMs: isStream ? null : latencyMs,
@@ -221,7 +240,7 @@ proxy.all("/*", tokenAuth, async (c) => {
 				tokenId: tokenRecord.id,
 				channelId: channelForUsage.id,
 				model,
-				requestPath: targetPath,
+				requestPath: lastRequestPath,
 				totalTokens: normalized.totalTokens,
 				promptTokens: normalized.promptTokens,
 				completionTokens: normalized.completionTokens,
