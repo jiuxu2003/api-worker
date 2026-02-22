@@ -89,6 +89,14 @@
   - 类型: 微调（无方案包）
   - 文件: apps/worker/src/routes/proxy.ts
 
+## [0.8.1] - 2026-02-23
+
+### 变更
+- **[admin-ui]**: 站点管理新增搜索与排序，移动端提供排序控件
+  - 方案: [202602230005_site-sort-search](archive/2026-02/202602230005_site-sort-search/)
+- **[tests]**: 增加站点搜索与排序单测
+  - 方案: [202602230005_site-sort-search](archive/2026-02/202602230005_site-sort-search/)
+
 ## [0.8.0] - 2026-02-22
 
 ### 变更

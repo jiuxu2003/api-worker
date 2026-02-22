@@ -13,6 +13,11 @@ import {
 	initialSiteForm,
 	tabs,
 } from "./core/constants";
+import {
+	filterSites,
+	sortSites,
+	type SiteSortState,
+} from "./core/sites";
 import type {
 	AdminData,
 	CheckinSummary,
@@ -97,6 +102,11 @@ const App = () => {
 		useState<SettingsForm>(initialSettingsForm);
 	const [sitePage, setSitePage] = useState(1);
 	const [sitePageSize, setSitePageSize] = useState(10);
+	const [siteSearch, setSiteSearch] = useState("");
+	const [siteSort, setSiteSort] = useState<SiteSortState>({
+		key: "name",
+		direction: "asc",
+	});
 	const [tokenPage, setTokenPage] = useState(1);
 	const [tokenPageSize, setTokenPageSize] = useState(10);
 	const [editingSite, setEditingSite] = useState<Site | null>(null);
@@ -284,6 +294,14 @@ const App = () => {
 	const handleSitePageSizeChange = useCallback((next: number) => {
 		setSitePageSize(next);
 		setSitePage(1);
+	}, []);
+
+	const handleSiteSearchChange = useCallback((next: string) => {
+		setSiteSearch(next);
+	}, []);
+
+	const handleSiteSortChange = useCallback((next: SiteSortState) => {
+		setSiteSort(next);
 	}, []);
 
 	const handleTokenPageChange = useCallback((next: number) => {
@@ -656,15 +674,23 @@ const App = () => {
 		}
 	}, [loadUsage]);
 
-	const siteTotal = data.sites.length;
+	const filteredSites = useMemo(
+		() => filterSites(data.sites, siteSearch),
+		[data.sites, siteSearch],
+	);
+	const sortedSites = useMemo(
+		() => sortSites(filteredSites, siteSort),
+		[filteredSites, siteSort],
+	);
+	const siteTotal = sortedSites.length;
 	const siteTotalPages = useMemo(
 		() => Math.max(1, Math.ceil(siteTotal / sitePageSize)),
 		[siteTotal, sitePageSize],
 	);
 	const pagedSites = useMemo(() => {
 		const start = (sitePage - 1) * sitePageSize;
-		return data.sites.slice(start, start + sitePageSize);
-	}, [sitePage, sitePageSize, data.sites]);
+		return sortedSites.slice(start, start + sitePageSize);
+	}, [sitePage, sitePageSize, sortedSites]);
 	const tokenTotal = data.tokens.length;
 	const tokenTotalPages = useMemo(
 		() => Math.max(1, Math.ceil(tokenTotal / tokenPageSize)),
@@ -678,6 +704,10 @@ const App = () => {
 	useEffect(() => {
 		setSitePage((prev) => Math.min(prev, siteTotalPages));
 	}, [siteTotalPages]);
+
+	useEffect(() => {
+		setSitePage(1);
+	}, [siteSearch, siteSort.key, siteSort.direction]);
 
 	useEffect(() => {
 		setTokenPage((prev) => Math.min(prev, tokenTotalPages));
@@ -712,6 +742,8 @@ const App = () => {
 					isSiteModalOpen={isSiteModalOpen}
 					summary={checkinSummary}
 					lastRun={checkinLastRun}
+					siteSearch={siteSearch}
+					siteSort={siteSort}
 					onCreate={openSiteCreate}
 					onCloseModal={closeSiteModal}
 					onEdit={startSiteEdit}
@@ -721,6 +753,8 @@ const App = () => {
 					onDelete={handleSiteDelete}
 					onPageChange={handleSitePageChange}
 					onPageSizeChange={handleSitePageSizeChange}
+					onSearchChange={handleSiteSearchChange}
+					onSortChange={handleSiteSortChange}
 					onFormChange={handleSiteFormChange}
 					onRunAll={handleCheckinRunAll}
 				/>

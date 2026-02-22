@@ -1,5 +1,11 @@
 import type { CheckinSummary, Site, SiteForm } from "../core/types";
 import {
+	getSiteCheckinLabel,
+	getSiteTypeLabel,
+	type SiteSortKey,
+	type SiteSortState,
+} from "../core/sites";
+import {
 	buildPageItems,
 	formatDateTime,
 	getBeijingDateString,
@@ -16,6 +22,8 @@ type SitesViewProps = {
 	isSiteModalOpen: boolean;
 	summary: CheckinSummary | null;
 	lastRun: string | null;
+	siteSearch: string;
+	siteSort: SiteSortState;
 	onCreate: () => void;
 	onCloseModal: () => void;
 	onEdit: (site: Site) => void;
@@ -25,20 +33,21 @@ type SitesViewProps = {
 	onDelete: (id: string) => void;
 	onPageChange: (next: number) => void;
 	onPageSizeChange: (next: number) => void;
+	onSearchChange: (next: string) => void;
+	onSortChange: (next: SiteSortState) => void;
 	onFormChange: (patch: Partial<SiteForm>) => void;
 	onRunAll: () => void;
 };
 
 const pageSizeOptions = [10, 20, 50];
-
-const typeLabelMap: Record<Site["site_type"], string> = {
-	"new-api": "New API",
-	"done-hub": "Done Hub",
-	subapi: "Sub API",
-	chatgpt: "ChatGPT",
-	claude: "Claude",
-	gemini: "Gemini",
-};
+const sortableColumns: Array<{ key: SiteSortKey; label: string }> = [
+	{ key: "name", label: "站点" },
+	{ key: "type", label: "类型" },
+	{ key: "status", label: "状态" },
+	{ key: "weight", label: "权重" },
+	{ key: "tokens", label: "令牌" },
+	{ key: "checkin", label: "签到" },
+];
 
 export const SitesView = ({
 	siteForm,
@@ -51,6 +60,8 @@ export const SitesView = ({
 	isSiteModalOpen,
 	summary,
 	lastRun,
+	siteSearch,
+	siteSort,
 	onCreate,
 	onCloseModal,
 	onEdit,
@@ -60,6 +71,8 @@ export const SitesView = ({
 	onDelete,
 	onPageChange,
 	onPageSizeChange,
+	onSearchChange,
+	onSortChange,
 	onFormChange,
 	onRunAll,
 }: SitesViewProps) => {
@@ -98,6 +111,22 @@ export const SitesView = ({
 		const next = siteForm.call_tokens.filter((_, idx) => idx !== index);
 		onFormChange({ call_tokens: next });
 	};
+	const toggleSort = (key: SiteSortKey) => {
+		if (siteSort.key === key) {
+			onSortChange({
+				key,
+				direction: siteSort.direction === "asc" ? "desc" : "asc",
+			});
+			return;
+		}
+		onSortChange({ key, direction: "asc" });
+	};
+	const sortIndicator = (key: SiteSortKey) => {
+		if (siteSort.key !== key) {
+			return "↕";
+		}
+		return siteSort.direction === "asc" ? "▲" : "▼";
+	};
 	return (
 		<div class="space-y-5">
 			<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
@@ -135,6 +164,37 @@ export const SitesView = ({
 						</button>
 					</div>
 				</div>
+				<div class="mt-4 flex flex-wrap items-center gap-3">
+					<label class="flex w-full items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-500 sm:w-72">
+						<span>搜索</span>
+						<input
+							class="w-full bg-transparent text-xs text-stone-700 placeholder:text-stone-400 focus:outline-none"
+							placeholder="站点名称或 URL"
+							value={siteSearch}
+							onInput={(event) =>
+								onSearchChange(
+									(event.currentTarget as HTMLInputElement).value,
+								)
+							}
+						/>
+					</label>
+					<div class="flex flex-wrap items-center gap-2 md:hidden">
+						{sortableColumns.map((column) => (
+							<button
+								class={`h-8 rounded-full border px-3 text-[11px] font-semibold transition-all duration-200 ease-in-out ${
+									siteSort.key === column.key
+										? "border-stone-900 bg-stone-900 text-white"
+										: "border-stone-200 bg-white text-stone-600 hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-md"
+								}`}
+								key={column.key}
+								type="button"
+								onClick={() => toggleSort(column.key)}
+							>
+								{column.label} {sortIndicator(column.key)}
+							</button>
+						))}
+					</div>
+				</div>
 				<div class="mt-4">
 					<div class="space-y-3 md:hidden">
 						{pagedSites.length === 0 ? (
@@ -145,7 +205,6 @@ export const SitesView = ({
 							pagedSites.map((site) => {
 								const isActive = site.status === "active";
 								const isToday = site.last_checkin_date === today;
-								const status = isToday ? site.last_checkin_status : null;
 								const message = isToday ? site.last_checkin_message : null;
 								const systemReady = Boolean(
 									site.system_token && site.system_userid,
@@ -183,12 +242,12 @@ export const SitesView = ({
 												{isActive ? "启用" : "禁用"}
 											</span>
 										</div>
-										<div class="mt-3 flex items-center justify-between text-xs text-stone-500">
-											<span>类型</span>
-											<span class="font-semibold text-stone-700">
-												{typeLabelMap[site.site_type]}
-											</span>
-										</div>
+											<div class="mt-3 flex items-center justify-between text-xs text-stone-500">
+												<span>类型</span>
+												<span class="font-semibold text-stone-700">
+													{getSiteTypeLabel(site.site_type)}
+												</span>
+											</div>
 										<div class="mt-3 flex items-center justify-between text-xs text-stone-500">
 											<span>权重</span>
 											<span class="font-semibold text-stone-700">
@@ -211,15 +270,7 @@ export const SitesView = ({
 											<div class="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
 												<p>今日签到</p>
 												<p class="mt-1 font-semibold text-stone-700">
-													{!showCheckin
-														? "-"
-														: status
-															? status === "success"
-																? "成功"
-																: status === "skipped"
-																	? "已签"
-																	: "签到失败"
-															: "未签到"}
+													{getSiteCheckinLabel(site, today)}
 												</p>
 												{message && showCheckin && (
 													<p class="mt-1 truncate text-[11px] text-stone-500">
@@ -265,12 +316,20 @@ export const SitesView = ({
 					</div>
 					<div class="hidden overflow-hidden rounded-xl border border-stone-200 md:block">
 						<div class="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.5fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_minmax(0,1.4fr)] gap-3 bg-stone-50 px-4 py-3 text-xs uppercase tracking-widest text-stone-500">
-							<div>站点</div>
-							<div>类型</div>
-							<div>状态</div>
-							<div>权重</div>
-							<div>令牌</div>
-							<div>签到</div>
+							{sortableColumns.map((column) => (
+								<div key={column.key}>
+									<button
+										class="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-stone-500 hover:text-stone-700"
+										type="button"
+										onClick={() => toggleSort(column.key)}
+									>
+										{column.label}
+										<span class="text-[10px]">
+											{sortIndicator(column.key)}
+										</span>
+									</button>
+								</div>
+							))}
 							<div>操作</div>
 						</div>
 						{pagedSites.length === 0 ? (
@@ -282,7 +341,6 @@ export const SitesView = ({
 								{pagedSites.map((site) => {
 									const isActive = site.status === "active";
 									const isToday = site.last_checkin_date === today;
-									const status = isToday ? site.last_checkin_status : null;
 									const checkinEnabled =
 										site.site_type === "new-api" &&
 										Boolean(site.checkin_enabled);
@@ -310,7 +368,7 @@ export const SitesView = ({
 												</span>
 											</div>
 											<div class="text-xs font-semibold text-stone-700">
-												{typeLabelMap[site.site_type]}
+												{getSiteTypeLabel(site.site_type)}
 											</div>
 											<div>
 												<span
@@ -330,15 +388,7 @@ export const SitesView = ({
 												{callTokenCount > 0 ? `${callTokenCount} 个` : "-"}
 											</div>
 											<div class="text-xs text-stone-600">
-												{!showCheckin
-													? "-"
-													: status
-														? status === "success"
-															? "成功"
-															: status === "skipped"
-																? "已签"
-																: "签到失败"
-														: "未签到"}
+												{getSiteCheckinLabel(site, today)}
 											</div>
 											<div class="flex flex-wrap gap-2">
 												<button
