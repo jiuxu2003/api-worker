@@ -2,6 +2,11 @@ import { Hono } from "hono";
 import type { AppEnv } from "../env";
 import { type TokenRecord, tokenAuth } from "../middleware/tokenAuth";
 import {
+	type CallTokenItem,
+	selectCallToken,
+} from "../services/call-token-selector";
+import { listCallTokens } from "../services/channel-call-token-repo";
+import {
 	type ChannelRecord,
 	createWeightedOrder,
 	extractModels,
@@ -79,6 +84,10 @@ async function sleep(ms: number): Promise<void> {
 	await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function resolveChannelBaseUrl(channel: ChannelRecord): string {
+	return normalizeBaseUrl(channel.base_url);
+}
+
 /**
  * OpenAI-compatible proxy handler.
  */
@@ -119,6 +128,21 @@ proxy.all("/*", tokenAuth, async (c) => {
 		.bind("active")
 		.all();
 	const activeChannels = (channelResult.results ?? []) as ChannelRecord[];
+	const callTokenRows = await listCallTokens(c.env.DB, {
+		channelIds: activeChannels.map((channel) => channel.id),
+	});
+	const callTokenMap = new Map<string, CallTokenItem[]>();
+	for (const row of callTokenRows) {
+		const entry: CallTokenItem = {
+			id: row.id,
+			channel_id: row.channel_id,
+			name: row.name,
+			api_key: row.api_key,
+		};
+		const list = callTokenMap.get(row.channel_id) ?? [];
+		list.push(entry);
+		callTokenMap.set(row.channel_id, list);
+	}
 	const allowedChannels = filterAllowedChannels(activeChannels, tokenRecord);
 	const modelChannels = allowedChannels.filter((channel) =>
 		channelSupportsModel(channel, model),
@@ -149,11 +173,14 @@ proxy.all("/*", tokenAuth, async (c) => {
 		let shouldRetry = false;
 		for (const channel of ordered) {
 			lastChannel = channel;
-			const baseUrl = normalizeBaseUrl(channel.base_url);
+			const baseUrl = resolveChannelBaseUrl(channel);
+			const tokens = callTokenMap.get(channel.id) ?? [];
+			const selectedToken = tokens.length > 0 ? selectCallToken(tokens) : null;
+			const apiKey = selectedToken?.api_key ?? channel.api_key;
 			const target = `${baseUrl}${targetPath}${querySuffix}`;
 			const headers = new Headers(c.req.header());
-			headers.set("Authorization", `Bearer ${channel.api_key}`);
-			headers.set("x-api-key", String(channel.api_key));
+			headers.set("Authorization", `Bearer ${apiKey}`);
+			headers.set("x-api-key", String(apiKey));
 			headers.delete("host");
 			headers.delete("content-length");
 

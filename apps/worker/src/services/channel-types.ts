@@ -13,6 +13,14 @@ export type ChannelRow = {
 	metadata_json?: string | null;
 	test_time?: number | string | null;
 	response_time_ms?: number | null;
+	system_token?: string | null;
+	system_userid?: string | null;
+	checkin_enabled?: number | boolean | null;
+	checkin_url?: string | null;
+	last_checkin_date?: string | null;
+	last_checkin_status?: string | null;
+	last_checkin_message?: string | null;
+	last_checkin_at?: string | null;
 	created_at?: string | null;
 	updated_at?: string | null;
 };

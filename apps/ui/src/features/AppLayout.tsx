@@ -36,17 +36,24 @@ export const AppLayout = ({
 			toggle.checked = false;
 		}
 	};
+	const toggleMobileNav = () => {
+		const toggle = document.querySelector<HTMLInputElement>("#app-nav-toggle");
+		if (toggle) {
+			toggle.checked = !toggle.checked;
+		}
+	};
 
 	return (
 		<div class="relative flex min-h-screen flex-col lg:grid lg:grid-cols-[260px_1fr]">
 			<input class="peer hidden" id="app-nav-toggle" type="checkbox" />
 			<header class="flex items-center justify-between border-b border-stone-200 bg-white px-4 py-4 lg:hidden">
 				<div class="flex items-center gap-3">
-					<label
+					<button
+						aria-controls="app-nav-toggle"
 						aria-label="打开导航"
 						class="inline-flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-700 shadow-sm transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-						for="app-nav-toggle"
-						role="button"
+						type="button"
+						onClick={toggleMobileNav}
 					>
 						<svg
 							aria-hidden="true"
@@ -56,12 +63,24 @@ export const AppLayout = ({
 							stroke="currentColor"
 							stroke-width="1.8"
 						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16" />
-							<path stroke-linecap="round" stroke-linejoin="round" d="M4 12h16" />
-							<path stroke-linecap="round" stroke-linejoin="round" d="M4 18h16" />
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M4 6h16"
+							/>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M4 12h16"
+							/>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M4 18h16"
+							/>
 						</svg>
 						菜单
-					</label>
+					</button>
 					<div class="flex flex-col">
 						<span class="text-sm font-semibold text-stone-900">
 							api-workers
@@ -140,10 +159,11 @@ export const AppLayout = ({
 				)}
 				{children}
 			</main>
-			<label
-				aria-hidden="true"
+			<button
+				aria-label="关闭导航"
 				class="fixed inset-0 z-30 bg-stone-900/40 opacity-0 transition-opacity duration-300 ease-in-out peer-checked:pointer-events-auto peer-checked:opacity-100 lg:hidden pointer-events-none"
-				for="app-nav-toggle"
+				type="button"
+				onClick={closeMobileNav}
 			/>
 		</div>
 	);

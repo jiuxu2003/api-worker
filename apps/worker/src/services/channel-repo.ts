@@ -151,6 +151,14 @@ export type ChannelInsertInput = {
 	group_name: string | null;
 	priority: number;
 	metadata_json: string | null;
+	system_token?: string | null;
+	system_userid?: string | null;
+	checkin_enabled?: number | boolean | null;
+	checkin_url?: string | null;
+	last_checkin_date?: string | null;
+	last_checkin_status?: string | null;
+	last_checkin_message?: string | null;
+	last_checkin_at?: string | null;
 	created_at: string;
 	updated_at: string;
 };
@@ -161,7 +169,7 @@ export async function insertChannel(
 ): Promise<void> {
 	await db
 		.prepare(
-			"INSERT INTO channels (id, name, base_url, api_key, weight, status, rate_limit, models_json, type, group_name, priority, metadata_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			"INSERT INTO channels (id, name, base_url, api_key, weight, status, rate_limit, models_json, type, group_name, priority, metadata_json, system_token, system_userid, checkin_enabled, checkin_url, last_checkin_date, last_checkin_status, last_checkin_message, last_checkin_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		)
 		.bind(
 			input.id,
@@ -176,6 +184,18 @@ export async function insertChannel(
 			input.group_name,
 			input.priority,
 			input.metadata_json,
+			input.system_token ?? null,
+			input.system_userid ?? null,
+			typeof input.checkin_enabled === "boolean"
+				? input.checkin_enabled
+					? 1
+					: 0
+				: (input.checkin_enabled ?? 0),
+			input.checkin_url ?? null,
+			input.last_checkin_date ?? null,
+			input.last_checkin_status ?? null,
+			input.last_checkin_message ?? null,
+			input.last_checkin_at ?? null,
 			input.created_at,
 			input.updated_at,
 		)
@@ -194,6 +214,14 @@ export type ChannelUpdateInput = {
 	group_name: string | null;
 	priority: number;
 	metadata_json: string | null;
+	system_token: string | null;
+	system_userid: string | null;
+	checkin_enabled: number | boolean | null;
+	checkin_url: string | null;
+	last_checkin_date: string | null;
+	last_checkin_status: string | null;
+	last_checkin_message: string | null;
+	last_checkin_at: string | null;
 	updated_at: string;
 };
 
@@ -204,7 +232,7 @@ export async function updateChannel(
 ): Promise<void> {
 	await db
 		.prepare(
-			"UPDATE channels SET name = ?, base_url = ?, api_key = ?, weight = ?, status = ?, rate_limit = ?, models_json = ?, type = ?, group_name = ?, priority = ?, metadata_json = ?, updated_at = ? WHERE id = ?",
+			"UPDATE channels SET name = ?, base_url = ?, api_key = ?, weight = ?, status = ?, rate_limit = ?, models_json = ?, type = ?, group_name = ?, priority = ?, metadata_json = ?, system_token = ?, system_userid = ?, checkin_enabled = ?, checkin_url = ?, last_checkin_date = ?, last_checkin_status = ?, last_checkin_message = ?, last_checkin_at = ?, updated_at = ? WHERE id = ?",
 		)
 		.bind(
 			input.name,
@@ -218,7 +246,44 @@ export async function updateChannel(
 			input.group_name,
 			input.priority,
 			input.metadata_json,
+			input.system_token,
+			input.system_userid,
+			typeof input.checkin_enabled === "boolean"
+				? input.checkin_enabled
+					? 1
+					: 0
+				: (input.checkin_enabled ?? 0),
+			input.checkin_url,
+			input.last_checkin_date,
+			input.last_checkin_status,
+			input.last_checkin_message,
+			input.last_checkin_at,
 			input.updated_at,
+			id,
+		)
+		.run();
+}
+
+export async function updateChannelCheckinResult(
+	db: D1Database,
+	id: string,
+	input: {
+		last_checkin_date: string | null;
+		last_checkin_status: string | null;
+		last_checkin_message: string | null;
+		last_checkin_at: string | null;
+	},
+): Promise<void> {
+	await db
+		.prepare(
+			"UPDATE channels SET last_checkin_date = ?, last_checkin_status = ?, last_checkin_message = ?, last_checkin_at = ?, updated_at = ? WHERE id = ?",
+		)
+		.bind(
+			input.last_checkin_date,
+			input.last_checkin_status,
+			input.last_checkin_message,
+			input.last_checkin_at,
+			input.last_checkin_at ?? new Date().toISOString(),
 			id,
 		)
 		.run();

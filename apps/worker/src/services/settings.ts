@@ -120,7 +120,8 @@ export async function getCheckinSchedule(db: D1Database): Promise<{
 	const enabledRaw = await readSetting(db, CHECKIN_SCHEDULE_ENABLED_KEY);
 	const timeRaw = await readSetting(db, CHECKIN_SCHEDULE_TIME_KEY);
 	const enabled = enabledRaw ? enabledRaw === "true" : false;
-	const time = timeRaw && timeRaw.length > 0 ? timeRaw : DEFAULT_CHECKIN_SCHEDULE_TIME;
+	const time =
+		timeRaw && timeRaw.length > 0 ? timeRaw : DEFAULT_CHECKIN_SCHEDULE_TIME;
 	return { enabled, time };
 }
 

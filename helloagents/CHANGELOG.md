@@ -100,6 +100,23 @@
 
 ### 变更
 
+- **[sites/admin-ui]**: 移除历史签到记录关联入口与 orphans 返回，简化站点签到提示
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/src/routes/sites.ts, apps/ui/src/features/SitesView.tsx, apps/ui/src/App.tsx, apps/ui/src/core/types.ts, apps/ui/src/core/constants.ts, helloagents/modules/sites.md, helloagents/modules/checkin.md, helloagents/modules/admin-ui.md
+- **[checkin/db]**: 移除 `checkin_sites` 表与 `/api/checkin-sites` 路由，签到字段迁移至 `channels`
+  - 类型: 微调（无方案包）
+  - ⚠️ EHRB: 数据删除 - 用户已确认风险
+  - 检测依据: DROP TABLE
+  - 文件: apps/worker/src/index.ts, apps/worker/src/routes/sites.ts, apps/worker/src/services/checkin.ts, apps/worker/src/services/channel-repo.ts, apps/worker/src/services/channel-types.ts, apps/worker/src/db/schema.sql, apps/worker/migrations/0005_move_checkin_to_channels.sql, helloagents/modules/checkin.md, helloagents/modules/sites.md
+- **[sites/proxy/admin-ui]**: 移除调用令牌的模型权限字段，改为按顺序选择令牌
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/src/routes/sites.ts, apps/worker/src/routes/proxy.ts, apps/worker/src/services/call-token-selector.ts, apps/worker/src/services/channel-call-token-repo.ts, apps/worker/src/services/channel-call-token-types.ts, apps/ui/src/features/SitesView.tsx, apps/ui/src/App.tsx, apps/ui/src/core/types.ts, apps/ui/src/core/constants.ts, tests/worker/call-token-selector.test.ts, helloagents/modules/admin-ui.md, helloagents/modules/proxy.md, helloagents/plan/202602221951_site-redesign/proposal.md
+- **[admin-ui]**: 新增站点默认开启自动签到，并限制调用令牌列表高度
+  - 类型: 微调（无方案包）
+  - 文件: apps/ui/src/core/constants.ts, apps/ui/src/features/SitesView.tsx, helloagents/modules/admin-ui.md
+- **[admin-ui]**: 站点弹窗设置最大高度并允许表单滚动，避免调用令牌过多导致超出屏幕
+  - 类型: 微调（无方案包）
+  - 文件: apps/ui/src/features/SitesView.tsx
 - **[checkin]**: 对齐 `/api/user/checkin` 接口并增加 `New-Api-User` 头支持
   - 类型: 微调（无方案包）
   - 文件: apps/worker/src/services/checkin.ts, apps/worker/src/routes/checkin-sites.ts, apps/ui/src/features/CheckinSitesView.tsx, apps/worker/migrations/0002_add_checkin_sites.sql
@@ -121,6 +138,43 @@
 - **[db]**: 合并签到相关迁移到单一脚本
   - 类型: 微调（无方案包）
   - 文件: apps/worker/migrations/0002_add_checkin_sites.sql
+
+## [0.7.1] - 2026-02-22
+
+### 变更
+- **[db]**: 合并 0002-0005 迁移为单一 0002 并同步 schema
+  - 方案: [202602222203_merge-migrations](archive/2026-02/202602222203_merge-migrations/)
+
+## [0.7.0] - 2026-02-22
+
+### 变更
+- **[sites]**: 站点重设计，支持系统令牌与多调用令牌、上游类型扩展与官方地址默认值
+  - 方案: [202602221951_site-redesign](archive/2026-02/202602221951_site-redesign/)
+  - 决策: site-redesign#D001(调用令牌独立表), site-redesign#D002(系统令牌复用 checkin_sites), site-redesign#D003(done-hub 仅默认地址)
+- **[proxy]**: 按调用令牌模型权限选择上游并移除 done-hub 多地址切换
+  - 方案: [202602221951_site-redesign](archive/2026-02/202602221951_site-redesign/)
+- **[admin-ui]**: 站点管理重构为系统令牌 + 多调用令牌，并支持新上游类型
+  - 方案: [202602221951_site-redesign](archive/2026-02/202602221951_site-redesign/)
+- **[checkin]**: 签到支持自定义地址优先并保留 new-api 自动签到
+  - 方案: [202602221951_site-redesign](archive/2026-02/202602221951_site-redesign/)
+- **[db]**: 新增 `channel_call_tokens` 以存储多调用令牌
+  - 方案: [202602221951_site-redesign](archive/2026-02/202602221951_site-redesign/)
+
+## [0.6.0] - 2026-02-22
+
+### 变更
+
+- **[sites]**: 新增站点聚合接口与类型分类，支持自动关联签到记录
+  - 方案: [202602221813_unify-sites](archive/2026-02/202602221813_unify-sites/)
+  - 决策: unify-sites#D001(渠道为主 + 签到绑定)
+- **[admin-ui]**: 站点管理合并渠道与签到配置，支持类型字段与一键签到
+  - 方案: [202602221813_unify-sites](archive/2026-02/202602221813_unify-sites/)
+- **[checkin]**: 签到记录关联渠道，仅对 new-api 站点执行
+  - 方案: [202602221813_unify-sites](archive/2026-02/202602221813_unify-sites/)
+- **[proxy]**: done-hub 站点按多地址配置选择上游
+  - 方案: [202602221813_unify-sites](archive/2026-02/202602221813_unify-sites/)
+- **[db]**: checkin_sites 增加 channel_id 关联字段与索引
+  - 方案: [202602221813_unify-sites](archive/2026-02/202602221813_unify-sites/)
 
 ## [0.5.0] - 2026-02-22
 

@@ -5,8 +5,8 @@ import {
 	getRetentionDays,
 	getSessionTtlHours,
 	isAdminPasswordSet,
-	setCheckinSchedule,
 	setAdminPasswordHash,
+	setCheckinSchedule,
 	setRetentionDays,
 	setSessionTtlHours,
 } from "../services/settings";
@@ -87,7 +87,11 @@ settings.put("/", async (c) => {
 			enabledRaw === undefined
 				? current.enabled
 				: enabledRaw === true || enabledRaw === "true";
-		if (enabledRaw !== undefined && enabledRaw !== true && enabledRaw !== false) {
+		if (
+			enabledRaw !== undefined &&
+			enabledRaw !== true &&
+			enabledRaw !== false
+		) {
 			if (enabledRaw !== "true" && enabledRaw !== "false") {
 				return jsonError(
 					c,

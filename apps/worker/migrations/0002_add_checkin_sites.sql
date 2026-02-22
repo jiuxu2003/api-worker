@@ -1,15 +1,19 @@
-CREATE TABLE IF NOT EXISTS checkin_sites (
+ALTER TABLE channels ADD COLUMN system_token TEXT;
+ALTER TABLE channels ADD COLUMN system_userid TEXT;
+ALTER TABLE channels ADD COLUMN checkin_enabled INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE channels ADD COLUMN checkin_url TEXT;
+ALTER TABLE channels ADD COLUMN last_checkin_date TEXT;
+ALTER TABLE channels ADD COLUMN last_checkin_status TEXT;
+ALTER TABLE channels ADD COLUMN last_checkin_message TEXT;
+ALTER TABLE channels ADD COLUMN last_checkin_at TEXT;
+
+CREATE TABLE IF NOT EXISTS channel_call_tokens (
   id TEXT PRIMARY KEY,
+  channel_id TEXT NOT NULL,
   name TEXT NOT NULL,
-  base_url TEXT NOT NULL,
-  checkin_url TEXT,
-  token TEXT NOT NULL,
-  new_api_user TEXT,
-  last_checkin_date TEXT,
-  last_checkin_status TEXT,
-  last_checkin_message TEXT,
-  last_checkin_at TEXT,
-  status TEXT NOT NULL DEFAULT 'active',
+  api_key TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS channel_call_tokens_channel_id ON channel_call_tokens(channel_id);

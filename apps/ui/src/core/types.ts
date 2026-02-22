@@ -1,11 +1,37 @@
-export type Channel = {
+export type SiteType =
+	| "new-api"
+	| "done-hub"
+	| "subapi"
+	| "chatgpt"
+	| "claude"
+	| "gemini";
+
+export type SiteCallToken = {
+	id: string;
+	name: string;
+	api_key: string;
+};
+
+export type Site = {
 	id: string;
 	name: string;
 	base_url: string;
-	api_key: string;
 	weight: number;
 	status: string;
-	models_json?: string;
+	site_type: SiteType;
+	api_key?: string;
+	system_token?: string | null;
+	system_userid?: string | null;
+	checkin_enabled?: boolean;
+	checkin_id?: string | null;
+	checkin_url?: string | null;
+	call_tokens: SiteCallToken[];
+	last_checkin_date?: string | null;
+	last_checkin_status?: string | null;
+	last_checkin_message?: string | null;
+	last_checkin_at?: string | null;
+	created_at?: string | null;
+	updated_at?: string | null;
 };
 
 export type Token = {
@@ -69,13 +95,12 @@ export type ModelItem = {
 };
 
 export type AdminData = {
-	channels: Channel[];
+	sites: Site[];
 	tokens: Token[];
 	models: ModelItem[];
 	usage: UsageLog[];
 	dashboard: DashboardData | null;
 	settings: Settings | null;
-	checkinSites: CheckinSite[];
 };
 
 export type TabId =
@@ -84,19 +109,30 @@ export type TabId =
 	| "models"
 	| "tokens"
 	| "usage"
-	| "settings"
-	| "checkin-sites";
+	| "settings";
 
 export type TabItem = {
 	id: TabId;
 	label: string;
 };
 
-export type ChannelForm = {
+export type SiteForm = {
 	name: string;
 	base_url: string;
-	api_key: string;
 	weight: number;
+	status: string;
+	site_type: SiteType;
+	checkin_url: string;
+	system_token: string;
+	system_userid: string;
+	checkin_enabled: boolean;
+	call_tokens: SiteCallTokenForm[];
+};
+
+export type SiteCallTokenForm = {
+	id?: string;
+	name: string;
+	api_key: string;
 };
 
 export type SettingsForm = {
@@ -105,31 +141,6 @@ export type SettingsForm = {
 	admin_password: string;
 	checkin_schedule_enabled: boolean;
 	checkin_schedule_time: string;
-};
-
-export type CheckinSite = {
-	id: string;
-	name: string;
-	base_url: string;
-	checkin_url?: string | null;
-	token: string;
-	userid?: string | null;
-	last_checkin_date?: string | null;
-	last_checkin_status?: string | null;
-	last_checkin_message?: string | null;
-	last_checkin_at?: string | null;
-	status: string;
-	created_at?: string | null;
-	updated_at?: string | null;
-};
-
-export type CheckinSiteForm = {
-	name: string;
-	base_url: string;
-	checkin_url: string;
-	token: string;
-	userid: string;
-	status: string;
 };
 
 export type CheckinResultItem = {

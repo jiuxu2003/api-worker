@@ -1,6 +1,14 @@
 import { beijingDateString } from "../utils/time";
 import { normalizeBaseUrl } from "../utils/url";
-import type { CheckinSiteRow } from "./checkin-site-types";
+
+export type CheckinTarget = {
+	id: string;
+	name: string;
+	base_url: string;
+	checkin_url?: string | null;
+	system_token?: string | null;
+	system_userid?: string | null;
+};
 
 export type CheckinResultStatus = "success" | "failed" | "skipped";
 
@@ -41,6 +49,13 @@ const buildCheckinUrl = (baseUrl: string) => {
 	return `${normalized}/api/user/checkin`;
 };
 
+const resolveCheckinBaseUrl = (site: CheckinTarget) => {
+	if (site.checkin_url?.trim()) {
+		return site.checkin_url;
+	}
+	return site.base_url;
+};
+
 const summarizePayload = (payload: unknown): PayloadSummary => {
 	if (!payload) {
 		return { type: "null" };
@@ -62,7 +77,7 @@ const summarizePayload = (payload: unknown): PayloadSummary => {
 };
 
 const logCheckin = (
-	site: CheckinSiteRow,
+	site: CheckinTarget,
 	stage: string,
 	data: Record<string, unknown>,
 ) => {
@@ -148,8 +163,10 @@ const readError = async (response: Response) => {
 	return parseMessage(payload, `HTTP ${response.status}`);
 };
 
-export async function runCheckin(site: CheckinSiteRow): Promise<CheckinResultItem> {
-	const endpoint = buildCheckinUrl(site.base_url);
+export async function runCheckin(
+	site: CheckinTarget,
+): Promise<CheckinResultItem> {
+	const endpoint = buildCheckinUrl(resolveCheckinBaseUrl(site));
 	if (!endpoint) {
 		return {
 			id: site.id,
@@ -158,10 +175,18 @@ export async function runCheckin(site: CheckinSiteRow): Promise<CheckinResultIte
 			message: "站点 URL 为空",
 		};
 	}
+	if (!site.system_token || !site.system_token.trim()) {
+		return {
+			id: site.id,
+			name: site.name,
+			status: "failed",
+			message: "缺少系统令牌",
+		};
+	}
 	const headers = new Headers();
-	headers.set("Authorization", `Bearer ${site.token}`);
-	if (site.new_api_user && site.new_api_user.trim()) {
-		headers.set("New-Api-User", site.new_api_user.trim());
+	headers.set("Authorization", `Bearer ${site.system_token}`);
+	if (site.system_userid?.trim()) {
+		headers.set("New-Api-User", site.system_userid.trim());
 	} else {
 		return {
 			id: site.id,
@@ -251,10 +276,12 @@ export async function runCheckin(site: CheckinSiteRow): Promise<CheckinResultIte
 					? Number(codeValue)
 					: null;
 		const explicitFailure = Boolean(
-			(record.success === false) ||
-				(record.status === "error") ||
+			record.success === false ||
+				record.status === "error" ||
 				(record.error && String(record.error).length > 0) ||
-				(numericCode !== null && !Number.isNaN(numericCode) && numericCode !== 0),
+				(numericCode !== null &&
+					!Number.isNaN(numericCode) &&
+					numericCode !== 0),
 		);
 		if (explicitFailure) {
 			logCheckin(site, "checkin:explicit-failure", {
@@ -322,9 +349,7 @@ export async function runCheckin(site: CheckinSiteRow): Promise<CheckinResultIte
 	}
 }
 
-export function summarizeCheckin(
-	results: CheckinResultItem[],
-): CheckinSummary {
+export function summarizeCheckin(results: CheckinResultItem[]): CheckinSummary {
 	return results.reduce<CheckinSummary>(
 		(acc, item) => {
 			acc.total += 1;

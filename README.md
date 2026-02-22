@@ -7,7 +7,6 @@
 
 - `apps/worker` Cloudflare Worker (Hono)
 - `apps/ui` 管理台 (Vite)
-- `tests` 基础单元测试
 
 ## Action 自动部署流程（GitHub Actions）
 
@@ -181,4 +180,3 @@ bun run --filter api-worker db:migrate
 - `ALL /v1/*` 转发到渠道 `base_url + 请求路径`
 - 当请求路径为 `/v1/responses` 且上游 400/404 时自动回退到 `/responses`
 - 流式请求会自动补齐 `stream_options.include_usage = true` 以收集用量
-

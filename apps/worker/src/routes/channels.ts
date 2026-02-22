@@ -131,6 +131,14 @@ channels.patch("/:id", async (c) => {
 		group_name: current.group_name ?? null,
 		priority: current.priority ?? 0,
 		metadata_json: current.metadata_json ?? null,
+		system_token: current.system_token ?? null,
+		system_userid: current.system_userid ?? null,
+		checkin_enabled: current.checkin_enabled ?? 0,
+		checkin_url: current.checkin_url ?? null,
+		last_checkin_date: current.last_checkin_date ?? null,
+		last_checkin_status: current.last_checkin_status ?? null,
+		last_checkin_message: current.last_checkin_message ?? null,
+		last_checkin_at: current.last_checkin_at ?? null,
 		updated_at: nowIso(),
 	});
 

@@ -9,6 +9,7 @@
 | auth | 管理员登录与会话 | 🚧 | [auth.md](./auth.md) |
 | proxy | OpenAI 兼容代理与转发 | 🚧 | [proxy.md](./proxy.md) |
 | channels | 渠道管理与健康检查 | 🚧 | [channels.md](./channels.md) |
+| sites | 站点聚合管理 | 🚧 | [sites.md](./sites.md) |
 | models | 模型广场与聚合 | 🚧 | [models.md](./models.md) |
 | tokens | 令牌管理与额度 | 🚧 | [tokens.md](./tokens.md) |
 | usage | 使用日志与留存 | 🚧 | [usage.md](./usage.md) |
@@ -21,7 +22,8 @@
 ## 模块依赖关系
 
 ```
-admin-ui → auth, channels, models, tokens, usage, dashboard, settings, checkin
+admin-ui → auth, sites, models, tokens, usage, dashboard, settings
+sites → channels, checkin
 proxy → channels, tokens, usage
 dashboard → usage, tokens
 models → channels

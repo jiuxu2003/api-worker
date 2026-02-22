@@ -8,34 +8,31 @@ import {
 } from "hono/jsx/dom";
 import { createApiFetch } from "./core/api";
 import {
-	initialChannelForm,
-	initialCheckinSiteForm,
 	initialData,
 	initialSettingsForm,
+	initialSiteForm,
 	tabs,
 } from "./core/constants";
 import type {
 	AdminData,
-	Channel,
-	ChannelForm,
-	CheckinSite,
-	CheckinSiteForm,
 	CheckinSummary,
 	DashboardData,
 	Settings,
 	SettingsForm,
+	Site,
+	SiteForm,
+	SiteType,
 	TabId,
 	Token,
 	UsageLog,
 } from "./core/types";
 import { toggleStatus } from "./core/utils";
 import { AppLayout } from "./features/AppLayout";
-import { ChannelsView } from "./features/ChannelsView";
-import { CheckinSitesView } from "./features/CheckinSitesView";
 import { DashboardView } from "./features/DashboardView";
 import { LoginView } from "./features/LoginView";
 import { ModelsView } from "./features/ModelsView";
 import { SettingsView } from "./features/SettingsView";
+import { SitesView } from "./features/SitesView";
 import { TokensView } from "./features/TokensView";
 import { UsageView } from "./features/UsageView";
 
@@ -58,7 +55,6 @@ const tabToPath: Record<TabId, string> = {
 	models: "/models",
 	tokens: "/tokens",
 	usage: "/usage",
-	"checkin-sites": "/checkin-sites",
 	settings: "/settings",
 };
 
@@ -68,8 +64,13 @@ const pathToTab: Record<string, TabId> = {
 	"/models": "models",
 	"/tokens": "tokens",
 	"/usage": "usage",
-	"/checkin-sites": "checkin-sites",
 	"/settings": "settings",
+};
+
+const DEFAULT_BASE_URL_BY_TYPE: Partial<Record<SiteType, string>> = {
+	chatgpt: "https://api.openai.com",
+	claude: "https://api.anthropic.com",
+	gemini: "https://generativelanguage.googleapis.com",
 };
 
 /**
@@ -94,22 +95,16 @@ const App = () => {
 	const [data, setData] = useState<AdminData>(initialData);
 	const [settingsForm, setSettingsForm] =
 		useState<SettingsForm>(initialSettingsForm);
-	const [channelPage, setChannelPage] = useState(1);
-	const [channelPageSize, setChannelPageSize] = useState(10);
+	const [sitePage, setSitePage] = useState(1);
+	const [sitePageSize, setSitePageSize] = useState(10);
 	const [tokenPage, setTokenPage] = useState(1);
 	const [tokenPageSize, setTokenPageSize] = useState(10);
-	const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
-	const [channelForm, setChannelForm] = useState<ChannelForm>(() => ({
-		...initialChannelForm,
+	const [editingSite, setEditingSite] = useState<Site | null>(null);
+	const [siteForm, setSiteForm] = useState<SiteForm>(() => ({
+		...initialSiteForm,
 	}));
-	const [editingCheckinSite, setEditingCheckinSite] =
-		useState<CheckinSite | null>(null);
-	const [checkinSiteForm, setCheckinSiteForm] = useState<CheckinSiteForm>(() => ({
-		...initialCheckinSiteForm,
-	}));
-	const [isChannelModalOpen, setChannelModalOpen] = useState(false);
+	const [isSiteModalOpen, setSiteModalOpen] = useState(false);
 	const [isTokenModalOpen, setTokenModalOpen] = useState(false);
-	const [isCheckinModalOpen, setCheckinModalOpen] = useState(false);
 	const [checkinSummary, setCheckinSummary] = useState<CheckinSummary | null>(
 		null,
 	);
@@ -134,9 +129,14 @@ const App = () => {
 		setData((prev) => ({ ...prev, dashboard }));
 	}, [apiFetch]);
 
-	const loadChannels = useCallback(async () => {
-		const result = await apiFetch<{ channels: Channel[] }>("/api/channels");
-		setData((prev) => ({ ...prev, channels: result.channels }));
+	const loadSites = useCallback(async () => {
+		const result = await apiFetch<{
+			sites: Site[];
+		}>("/api/sites");
+		setData((prev) => ({
+			...prev,
+			sites: result.sites,
+		}));
 	}, [apiFetch]);
 
 	const loadModels = useCallback(async () => {
@@ -164,13 +164,6 @@ const App = () => {
 		setData((prev) => ({ ...prev, settings }));
 	}, [apiFetch]);
 
-	const loadCheckinSites = useCallback(async () => {
-		const result = await apiFetch<{ sites: CheckinSite[] }>(
-			"/api/checkin-sites",
-		);
-		setData((prev) => ({ ...prev, checkinSites: result.sites }));
-	}, [apiFetch]);
-
 	const loadTab = useCallback(
 		async (tabId: TabId) => {
 			setLoading(true);
@@ -180,7 +173,7 @@ const App = () => {
 					await loadDashboard();
 				}
 				if (tabId === "channels") {
-					await loadChannels();
+					await loadSites();
 				}
 				if (tabId === "models") {
 					await loadModels();
@@ -194,24 +187,13 @@ const App = () => {
 				if (tabId === "settings") {
 					await loadSettings();
 				}
-				if (tabId === "checkin-sites") {
-					await loadCheckinSites();
-				}
 			} catch (error) {
 				setNotice((error as Error).message);
 			} finally {
 				setLoading(false);
 			}
 		},
-		[
-			loadChannels,
-			loadDashboard,
-			loadModels,
-			loadSettings,
-			loadCheckinSites,
-			loadTokens,
-			loadUsage,
-		],
+		[loadDashboard, loadSites, loadModels, loadSettings, loadTokens, loadUsage],
 	);
 
 	useEffect(() => {
@@ -271,8 +253,21 @@ const App = () => {
 		updateToken(null);
 	}, [apiFetch, updateToken]);
 
-	const handleChannelFormChange = useCallback((patch: Partial<ChannelForm>) => {
-		setChannelForm((prev) => ({ ...prev, ...patch }));
+	const handleSiteFormChange = useCallback((patch: Partial<SiteForm>) => {
+		setSiteForm((prev) => {
+			const next = { ...prev, ...patch };
+			if (
+				patch.site_type &&
+				(!patch.base_url || patch.base_url.trim().length === 0) &&
+				!prev.base_url.trim()
+			) {
+				const fallback = DEFAULT_BASE_URL_BY_TYPE[patch.site_type];
+				if (fallback) {
+					next.base_url = fallback;
+				}
+			}
+			return next;
+		});
 	}, []);
 
 	const handleSettingsFormChange = useCallback(
@@ -282,20 +277,13 @@ const App = () => {
 		[],
 	);
 
-	const handleCheckinFormChange = useCallback(
-		(patch: Partial<CheckinSiteForm>) => {
-			setCheckinSiteForm((prev) => ({ ...prev, ...patch }));
-		},
-		[],
-	);
-
-	const handleChannelPageChange = useCallback((next: number) => {
-		setChannelPage(next);
+	const handleSitePageChange = useCallback((next: number) => {
+		setSitePage(next);
 	}, []);
 
-	const handleChannelPageSizeChange = useCallback((next: number) => {
-		setChannelPageSize(next);
-		setChannelPage(1);
+	const handleSitePageSizeChange = useCallback((next: number) => {
+		setSitePageSize(next);
+		setSitePage(1);
 	}, []);
 
 	const handleTokenPageChange = useCallback((next: number) => {
@@ -316,16 +304,16 @@ const App = () => {
 		setActiveTab(tabId);
 	}, []);
 
-	const closeChannelModal = useCallback(() => {
-		setEditingChannel(null);
-		setChannelForm({ ...initialChannelForm });
-		setChannelModalOpen(false);
+	const closeSiteModal = useCallback(() => {
+		setEditingSite(null);
+		setSiteForm({ ...initialSiteForm });
+		setSiteModalOpen(false);
 	}, []);
 
-	const openChannelCreate = useCallback(() => {
-		setEditingChannel(null);
-		setChannelForm({ ...initialChannelForm });
-		setChannelModalOpen(true);
+	const openSiteCreate = useCallback(() => {
+		setEditingSite(null);
+		setSiteForm({ ...initialSiteForm });
+		setSiteModalOpen(true);
 		setNotice("");
 	}, []);
 
@@ -334,22 +322,46 @@ const App = () => {
 		setNotice("");
 	}, []);
 
-	const openCheckinCreate = useCallback(() => {
-		setEditingCheckinSite(null);
-		setCheckinSiteForm({ ...initialCheckinSiteForm });
-		setCheckinModalOpen(true);
-		setNotice("");
-	}, []);
-
-	const startChannelEdit = useCallback((channel: Channel) => {
-		setEditingChannel(channel);
-		setChannelForm({
-			name: channel.name ?? "",
-			base_url: channel.base_url ?? "",
-			api_key: channel.api_key ?? "",
-			weight: channel.weight ?? 1,
+	const startSiteEdit = useCallback((site: Site) => {
+		setEditingSite(site);
+		const callTokens =
+			site.call_tokens && site.call_tokens.length > 0
+				? site.call_tokens
+				: site.api_key
+					? [
+							{
+								id: "",
+								name: "主调用令牌",
+								api_key: site.api_key,
+							},
+						]
+					: [];
+		const tokenForms =
+			callTokens.length > 0
+				? callTokens.map((token) => ({
+						id: token.id,
+						name: token.name,
+						api_key: token.api_key,
+					}))
+				: [
+						{
+							name: "主调用令牌",
+							api_key: "",
+						},
+					];
+		setSiteForm({
+			name: site.name ?? "",
+			base_url: site.base_url ?? "",
+			weight: site.weight ?? 1,
+			status: site.status ?? "active",
+			site_type: site.site_type ?? "new-api",
+			checkin_url: site.checkin_url ?? "",
+			system_token: site.system_token ?? "",
+			system_userid: site.system_userid ?? "",
+			checkin_enabled: Boolean(site.checkin_enabled ?? false),
+			call_tokens: tokenForms,
 		});
-		setChannelModalOpen(true);
+		setSiteModalOpen(true);
 		setNotice("");
 	}, []);
 
@@ -357,72 +369,77 @@ const App = () => {
 		setTokenModalOpen(false);
 	}, []);
 
-	const closeCheckinModal = useCallback(() => {
-		setCheckinModalOpen(false);
-	}, []);
-
-	const startCheckinEdit = useCallback((site: CheckinSite) => {
-		setEditingCheckinSite(site);
-		setCheckinSiteForm({
-			name: site.name ?? "",
-			base_url: site.base_url ?? "",
-			checkin_url: site.checkin_url ?? "",
-			token: site.token ?? "",
-			userid: site.userid ?? "",
-			status: site.status ?? "active",
-		});
-		setCheckinModalOpen(true);
-		setNotice("");
-	}, []);
-
-	const handleChannelSubmit = useCallback(
+	const handleSiteSubmit = useCallback(
 		async (event: Event) => {
 			event.preventDefault();
-			const channelName = channelForm.name.trim();
-			const normalizedName = channelName.toLowerCase();
-			const nameExists = data.channels.some(
-				(channel) =>
-					channel.name.trim().toLowerCase() === normalizedName &&
-					channel.id !== editingChannel?.id,
+			const siteName = siteForm.name.trim();
+			const normalizedName = siteName.toLowerCase();
+			const nameExists = data.sites.some(
+				(site) =>
+					site.name.trim().toLowerCase() === normalizedName &&
+					site.id !== editingSite?.id,
 			);
 			if (nameExists) {
-				setNotice("渠道名称已存在，请使用其他名称");
+				setNotice("站点名称已存在，请使用其他名称");
+				return;
+			}
+			const baseUrlValue = siteForm.base_url.trim();
+			if (!baseUrlValue && !DEFAULT_BASE_URL_BY_TYPE[siteForm.site_type]) {
+				setNotice("基础 URL 不能为空");
+				return;
+			}
+			const callTokens = siteForm.call_tokens
+				.map((token, index) => ({
+					id: token.id,
+					name: token.name.trim() || `调用令牌${index + 1}`,
+					api_key: token.api_key.trim(),
+				}))
+				.filter((token) => token.api_key.length > 0);
+			if (callTokens.length === 0) {
+				setNotice("至少填写一个调用令牌");
+				return;
+			}
+			if (
+				siteForm.site_type === "new-api" &&
+				siteForm.checkin_enabled &&
+				(!siteForm.system_token.trim() || !siteForm.system_userid.trim())
+			) {
+				setNotice("启用签到需要填写系统令牌与 User ID");
 				return;
 			}
 			try {
 				const body = {
-					name: channelName,
-					base_url: channelForm.base_url.trim(),
-					api_key: channelForm.api_key.trim(),
-					weight: Number(channelForm.weight),
+					name: siteName,
+					base_url: baseUrlValue,
+					weight: Number(siteForm.weight),
+					status: siteForm.status,
+					site_type: siteForm.site_type,
+					system_token: siteForm.system_token.trim(),
+					system_userid: siteForm.system_userid.trim(),
+					checkin_url: siteForm.checkin_url.trim() || null,
+					checkin_enabled: siteForm.checkin_enabled,
+					call_tokens: callTokens,
 				};
-				if (editingChannel) {
-					await apiFetch(`/api/channels/${editingChannel.id}`, {
+				if (editingSite) {
+					await apiFetch(`/api/sites/${editingSite.id}`, {
 						method: "PATCH",
 						body: JSON.stringify(body),
 					});
-					setNotice("渠道已更新");
+					setNotice("站点已更新");
 				} else {
-					await apiFetch("/api/channels", {
+					await apiFetch("/api/sites", {
 						method: "POST",
 						body: JSON.stringify(body),
 					});
-					setNotice("渠道已创建");
+					setNotice("站点已创建");
 				}
-				closeChannelModal();
-				await loadChannels();
+				closeSiteModal();
+				await loadSites();
 			} catch (error) {
 				setNotice((error as Error).message);
 			}
 		},
-		[
-			apiFetch,
-			channelForm,
-			closeChannelModal,
-			data.channels,
-			editingChannel,
-			loadChannels,
-		],
+		[apiFetch, siteForm, closeSiteModal, data.sites, editingSite, loadSites],
 	);
 
 	const handleTokenSubmit = useCallback(
@@ -456,47 +473,6 @@ const App = () => {
 		[apiFetch, loadTokens],
 	);
 
-	const handleCheckinSubmit = useCallback(
-		async (event: Event) => {
-			event.preventDefault();
-			const payload = {
-				name: checkinSiteForm.name.trim(),
-				base_url: checkinSiteForm.base_url.trim(),
-				checkin_url: checkinSiteForm.checkin_url.trim() || null,
-				token: checkinSiteForm.token.trim(),
-				userid: checkinSiteForm.userid.trim(),
-				status: checkinSiteForm.status,
-			};
-			try {
-				if (editingCheckinSite) {
-					await apiFetch(`/api/checkin-sites/${editingCheckinSite.id}`, {
-						method: "PATCH",
-						body: JSON.stringify(payload),
-					});
-					setNotice("签到站点已更新");
-				} else {
-					await apiFetch("/api/checkin-sites", {
-						method: "POST",
-						body: JSON.stringify(payload),
-					});
-					setNotice("签到站点已创建");
-				}
-				setCheckinModalOpen(false);
-				setEditingCheckinSite(null);
-				setCheckinSiteForm({ ...initialCheckinSiteForm });
-				await loadCheckinSites();
-			} catch (error) {
-				setNotice((error as Error).message);
-			}
-		},
-		[
-			apiFetch,
-			checkinSiteForm,
-			editingCheckinSite,
-			loadCheckinSites,
-		],
-	);
-
 	const handleSettingsSubmit = useCallback(
 		async (event: Event) => {
 			event.preventDefault();
@@ -528,7 +504,7 @@ const App = () => {
 		[apiFetch, loadSettings, settingsForm],
 	);
 
-	const handleChannelTest = useCallback(
+	const handleSiteTest = useCallback(
 		async (id: string) => {
 			try {
 				const result = await apiFetch<{ models: Array<{ id: string }> }>(
@@ -537,46 +513,46 @@ const App = () => {
 						method: "POST",
 					},
 				);
-				await loadChannels();
+				await loadSites();
 				setNotice(`连通测试完成，模型数 ${result.models?.length ?? 0}`);
 			} catch (error) {
 				setNotice((error as Error).message);
 			}
 		},
-		[apiFetch, loadChannels],
+		[apiFetch, loadSites],
 	);
 
-	const handleChannelDelete = useCallback(
+	const handleSiteDelete = useCallback(
 		async (id: string) => {
 			try {
-				await apiFetch(`/api/channels/${id}`, { method: "DELETE" });
-				await loadChannels();
-				setNotice("渠道已删除");
-				if (editingChannel?.id === id) {
-					closeChannelModal();
+				await apiFetch(`/api/sites/${id}`, { method: "DELETE" });
+				await loadSites();
+				setNotice("站点已删除");
+				if (editingSite?.id === id) {
+					closeSiteModal();
 				}
 			} catch (error) {
 				setNotice((error as Error).message);
 			}
 		},
-		[apiFetch, closeChannelModal, editingChannel, loadChannels],
+		[apiFetch, closeSiteModal, editingSite, loadSites],
 	);
 
-	const handleChannelToggle = useCallback(
+	const handleSiteToggle = useCallback(
 		async (id: string, status: string) => {
 			try {
 				const next = toggleStatus(status);
-				await apiFetch(`/api/channels/${id}`, {
+				await apiFetch(`/api/sites/${id}`, {
 					method: "PATCH",
 					body: JSON.stringify({ status: next }),
 				});
-				await loadChannels();
-				setNotice(`渠道已${next === "active" ? "启用" : "停用"}`);
+				await loadSites();
+				setNotice(`站点已${next === "active" ? "启用" : "停用"}`);
 			} catch (error) {
 				setNotice((error as Error).message);
 			}
 		},
-		[apiFetch, loadChannels],
+		[apiFetch, loadSites],
 	);
 
 	const handleTokenDelete = useCallback(
@@ -632,36 +608,6 @@ const App = () => {
 		[apiFetch, loadTokens],
 	);
 
-	const handleCheckinToggle = useCallback(
-		async (id: string, status: string) => {
-			try {
-				const next = toggleStatus(status);
-				await apiFetch(`/api/checkin-sites/${id}`, {
-					method: "PATCH",
-					body: JSON.stringify({ status: next }),
-				});
-				await loadCheckinSites();
-				setNotice(`签到站点已${next === "active" ? "启用" : "停用"}`);
-			} catch (error) {
-				setNotice((error as Error).message);
-			}
-		},
-		[apiFetch, loadCheckinSites],
-	);
-
-	const handleCheckinDelete = useCallback(
-		async (id: string) => {
-			try {
-				await apiFetch(`/api/checkin-sites/${id}`, { method: "DELETE" });
-				await loadCheckinSites();
-				setNotice("签到站点已删除");
-			} catch (error) {
-				setNotice((error as Error).message);
-			}
-		},
-		[apiFetch, loadCheckinSites],
-	);
-
 	const handleCheckinRunAll = useCallback(async () => {
 		try {
 			const result = await apiFetch<{
@@ -674,10 +620,10 @@ const App = () => {
 				}>;
 				summary: CheckinSummary;
 				runs_at: string;
-			}>("/api/checkin-sites/checkin-all", {
+			}>("/api/sites/checkin-all", {
 				method: "POST",
 			});
-			await loadCheckinSites();
+			await loadSites();
 			setCheckinSummary(result.summary);
 			setCheckinLastRun(result.runs_at);
 			setNotice(
@@ -688,7 +634,7 @@ const App = () => {
 		} catch (error) {
 			setNotice((error as Error).message);
 		}
-	}, [apiFetch, loadCheckinSites]);
+	}, [apiFetch, loadSites]);
 
 	const handleUsageRefresh = useCallback(async () => {
 		try {
@@ -699,15 +645,15 @@ const App = () => {
 		}
 	}, [loadUsage]);
 
-	const channelTotal = data.channels.length;
-	const channelTotalPages = useMemo(
-		() => Math.max(1, Math.ceil(channelTotal / channelPageSize)),
-		[channelTotal, channelPageSize],
+	const siteTotal = data.sites.length;
+	const siteTotalPages = useMemo(
+		() => Math.max(1, Math.ceil(siteTotal / sitePageSize)),
+		[siteTotal, sitePageSize],
 	);
-	const pagedChannels = useMemo(() => {
-		const start = (channelPage - 1) * channelPageSize;
-		return data.channels.slice(start, start + channelPageSize);
-	}, [channelPage, channelPageSize, data.channels]);
+	const pagedSites = useMemo(() => {
+		const start = (sitePage - 1) * sitePageSize;
+		return data.sites.slice(start, start + sitePageSize);
+	}, [sitePage, sitePageSize, data.sites]);
 	const tokenTotal = data.tokens.length;
 	const tokenTotalPages = useMemo(
 		() => Math.max(1, Math.ceil(tokenTotal / tokenPageSize)),
@@ -719,8 +665,8 @@ const App = () => {
 	}, [data.tokens, tokenPage, tokenPageSize]);
 
 	useEffect(() => {
-		setChannelPage((prev) => Math.min(prev, channelTotalPages));
-	}, [channelTotalPages]);
+		setSitePage((prev) => Math.min(prev, siteTotalPages));
+	}, [siteTotalPages]);
 
 	useEffect(() => {
 		setTokenPage((prev) => Math.min(prev, tokenTotalPages));
@@ -744,25 +690,28 @@ const App = () => {
 		}
 		if (activeTab === "channels") {
 			return (
-				<ChannelsView
-					channelForm={channelForm}
-					channelPage={channelPage}
-					channelPageSize={channelPageSize}
-					channelTotal={channelTotal}
-					channelTotalPages={channelTotalPages}
-					pagedChannels={pagedChannels}
-					editingChannel={editingChannel}
-					isChannelModalOpen={isChannelModalOpen}
-					onCreate={openChannelCreate}
-					onCloseModal={closeChannelModal}
-					onEdit={startChannelEdit}
-					onSubmit={handleChannelSubmit}
-					onTest={handleChannelTest}
-					onToggle={handleChannelToggle}
-					onDelete={handleChannelDelete}
-					onPageChange={handleChannelPageChange}
-					onPageSizeChange={handleChannelPageSizeChange}
-					onFormChange={handleChannelFormChange}
+				<SitesView
+					siteForm={siteForm}
+					sitePage={sitePage}
+					sitePageSize={sitePageSize}
+					siteTotal={siteTotal}
+					siteTotalPages={siteTotalPages}
+					pagedSites={pagedSites}
+					editingSite={editingSite}
+					isSiteModalOpen={isSiteModalOpen}
+					summary={checkinSummary}
+					lastRun={checkinLastRun}
+					onCreate={openSiteCreate}
+					onCloseModal={closeSiteModal}
+					onEdit={startSiteEdit}
+					onSubmit={handleSiteSubmit}
+					onTest={handleSiteTest}
+					onToggle={handleSiteToggle}
+					onDelete={handleSiteDelete}
+					onPageChange={handleSitePageChange}
+					onPageSizeChange={handleSitePageSizeChange}
+					onFormChange={handleSiteFormChange}
+					onRunAll={handleCheckinRunAll}
 				/>
 			);
 		}
@@ -799,26 +748,6 @@ const App = () => {
 					adminPasswordSet={data.settings?.admin_password_set ?? false}
 					onSubmit={handleSettingsSubmit}
 					onFormChange={handleSettingsFormChange}
-				/>
-			);
-		}
-		if (activeTab === "checkin-sites") {
-			return (
-				<CheckinSitesView
-					sites={data.checkinSites}
-					form={checkinSiteForm}
-					isModalOpen={isCheckinModalOpen}
-					editingSite={editingCheckinSite}
-					summary={checkinSummary}
-					lastRun={checkinLastRun}
-					onCreate={openCheckinCreate}
-					onEdit={startCheckinEdit}
-					onCloseModal={closeCheckinModal}
-					onSubmit={handleCheckinSubmit}
-					onFormChange={handleCheckinFormChange}
-					onToggle={handleCheckinToggle}
-					onDelete={handleCheckinDelete}
-					onRunAll={handleCheckinRunAll}
 				/>
 			);
 		}
