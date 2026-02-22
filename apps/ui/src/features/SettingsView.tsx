@@ -73,6 +73,51 @@ export const SettingsView = ({
 					}}
 				/>
 			</div>
+			<div>
+				<label
+					class="mb-1.5 block text-xs uppercase tracking-widest text-stone-500"
+					for="checkin-schedule-enabled"
+				>
+					定时签到
+				</label>
+				<div class="flex items-center gap-3 rounded-lg border border-stone-200 bg-white px-3 py-2.5">
+					<input
+						class="h-4 w-4 accent-stone-900"
+						id="checkin-schedule-enabled"
+						name="checkin_schedule_enabled"
+						type="checkbox"
+						checked={settingsForm.checkin_schedule_enabled}
+						onChange={(event) => {
+							const target = event.currentTarget as HTMLInputElement | null;
+							onFormChange({
+								checkin_schedule_enabled: Boolean(target?.checked),
+							});
+						}}
+					/>
+					<span class="text-sm text-stone-700">启用（中国时间）</span>
+				</div>
+			</div>
+			<div>
+				<label
+					class="mb-1.5 block text-xs uppercase tracking-widest text-stone-500"
+					for="checkin-schedule-time"
+				>
+					签到时间（中国时间）
+				</label>
+				<input
+					class="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
+					id="checkin-schedule-time"
+					name="checkin_schedule_time"
+					type="time"
+					value={settingsForm.checkin_schedule_time}
+					onInput={(event) => {
+						const target = event.currentTarget as HTMLInputElement | null;
+						onFormChange({
+							checkin_schedule_time: target?.value ?? "",
+						});
+					}}
+				/>
+			</div>
 			<div class="lg:col-span-2">
 				<label
 					class="mb-1.5 block text-xs uppercase tracking-widest text-stone-500"

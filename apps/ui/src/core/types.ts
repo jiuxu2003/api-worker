@@ -54,6 +54,8 @@ export type Settings = {
 	log_retention_days: number;
 	session_ttl_hours: number;
 	admin_password_set?: boolean;
+	checkin_schedule_enabled?: boolean;
+	checkin_schedule_time?: string;
 };
 
 export type ModelChannel = {
@@ -73,6 +75,7 @@ export type AdminData = {
 	usage: UsageLog[];
 	dashboard: DashboardData | null;
 	settings: Settings | null;
+	checkinSites: CheckinSite[];
 };
 
 export type TabId =
@@ -81,7 +84,8 @@ export type TabId =
 	| "models"
 	| "tokens"
 	| "usage"
-	| "settings";
+	| "settings"
+	| "checkin-sites";
 
 export type TabItem = {
 	id: TabId;
@@ -99,4 +103,46 @@ export type SettingsForm = {
 	log_retention_days: string;
 	session_ttl_hours: string;
 	admin_password: string;
+	checkin_schedule_enabled: boolean;
+	checkin_schedule_time: string;
+};
+
+export type CheckinSite = {
+	id: string;
+	name: string;
+	base_url: string;
+	checkin_url?: string | null;
+	token: string;
+	userid?: string | null;
+	last_checkin_date?: string | null;
+	last_checkin_status?: string | null;
+	last_checkin_message?: string | null;
+	last_checkin_at?: string | null;
+	status: string;
+	created_at?: string | null;
+	updated_at?: string | null;
+};
+
+export type CheckinSiteForm = {
+	name: string;
+	base_url: string;
+	checkin_url: string;
+	token: string;
+	userid: string;
+	status: string;
+};
+
+export type CheckinResultItem = {
+	id: string;
+	name: string;
+	status: "success" | "failed" | "skipped";
+	message: string;
+	checkin_date?: string | null;
+};
+
+export type CheckinSummary = {
+	total: number;
+	success: number;
+	failed: number;
+	skipped: number;
 };

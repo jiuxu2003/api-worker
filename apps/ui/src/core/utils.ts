@@ -36,6 +36,25 @@ export const formatDateTime = (value?: string | null) => {
 export const toggleStatus = (value: string) =>
 	value === "active" ? "disabled" : "active";
 
+/**
+ * Returns Beijing date string (YYYY-MM-DD).
+ *
+ * Args:
+ *   date: Optional date value.
+ *
+ * Returns:
+ *   Beijing date string.
+ */
+export const getBeijingDateString = (date: Date = new Date()) => {
+	const formatter = new Intl.DateTimeFormat("en-CA", {
+		timeZone: "Asia/Shanghai",
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+	});
+	return formatter.format(date);
+};
+
 export type PageItem = number | "ellipsis";
 
 export const buildPageItems = (current: number, total: number): PageItem[] => {

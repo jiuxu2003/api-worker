@@ -3,9 +3,12 @@ import { nowIso } from "../utils/time";
 
 const DEFAULT_LOG_RETENTION_DAYS = 30;
 const DEFAULT_SESSION_TTL_HOURS = 12;
+const DEFAULT_CHECKIN_SCHEDULE_TIME = "00:10";
 const RETENTION_KEY = "log_retention_days";
 const SESSION_TTL_KEY = "session_ttl_hours";
 const ADMIN_PASSWORD_HASH_KEY = "admin_password_hash";
+const CHECKIN_SCHEDULE_ENABLED_KEY = "checkin_schedule_enabled";
+const CHECKIN_SCHEDULE_TIME_KEY = "checkin_schedule_time";
 
 async function readSetting(
 	db: D1Database,
@@ -108,6 +111,25 @@ export async function setAdminPasswordHash(
 export async function isAdminPasswordSet(db: D1Database): Promise<boolean> {
 	const hash = await getAdminPasswordHash(db);
 	return Boolean(hash);
+}
+
+export async function getCheckinSchedule(db: D1Database): Promise<{
+	enabled: boolean;
+	time: string;
+}> {
+	const enabledRaw = await readSetting(db, CHECKIN_SCHEDULE_ENABLED_KEY);
+	const timeRaw = await readSetting(db, CHECKIN_SCHEDULE_TIME_KEY);
+	const enabled = enabledRaw ? enabledRaw === "true" : false;
+	const time = timeRaw && timeRaw.length > 0 ? timeRaw : DEFAULT_CHECKIN_SCHEDULE_TIME;
+	return { enabled, time };
+}
+
+export async function setCheckinSchedule(
+	db: D1Database,
+	input: { enabled: boolean; time: string },
+): Promise<void> {
+	await upsertSetting(db, CHECKIN_SCHEDULE_ENABLED_KEY, String(input.enabled));
+	await upsertSetting(db, CHECKIN_SCHEDULE_TIME_KEY, input.time);
 }
 
 /**

@@ -89,6 +89,46 @@
   - 类型: 微调（无方案包）
   - 文件: apps/worker/src/routes/proxy.ts
 
+### 修复
+
+- **[checkin]**: 签到结果增加二次校验与非 JSON 响应判定
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/src/services/checkin.ts
+- **[checkin]**: 已签到判定兼容 `checkin_date` 与“今日已签到”消息
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/src/services/checkin.ts
+
+### 变更
+
+- **[checkin]**: 对齐 `/api/user/checkin` 接口并增加 `New-Api-User` 头支持
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/src/services/checkin.ts, apps/worker/src/routes/checkin-sites.ts, apps/ui/src/features/CheckinSitesView.tsx, apps/worker/migrations/0002_add_checkin_sites.sql
+- **[checkin]**: 站点字段命名为 `userid`，结果展示移动到列表列
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/src/routes/checkin-sites.ts, apps/ui/src/features/CheckinSitesView.tsx, apps/ui/src/core/types.ts
+- **[checkin]**: 一键签到写回结果并跳过今日已签到站点
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/src/routes/checkin-sites.ts, apps/ui/src/features/CheckinSitesView.tsx, apps/ui/src/core/types.ts, apps/ui/src/core/utils.ts, apps/ui/src/App.tsx
+- **[settings]**: 增加定时签到开关与时间配置（中国时间）
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/src/routes/settings.ts, apps/ui/src/features/SettingsView.tsx, apps/ui/src/core/types.ts, apps/ui/src/core/constants.ts, apps/ui/src/App.tsx, tests/worker/settings.test.ts
+- **[admin-ui]**: 今日签到状态区分未签到与签到失败
+  - 类型: 微调（无方案包）
+  - 文件: apps/ui/src/features/CheckinSitesView.tsx
+- **[checkin]**: 签到失败也标记当日状态，避免显示为未签到
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/src/routes/checkin-sites.ts
+- **[db]**: 合并签到相关迁移到单一脚本
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/migrations/0002_add_checkin_sites.sql
+
+## [0.5.0] - 2026-02-22
+
+### 新增
+
+- **[checkin]**: 新增签到站点管理与一键签到
+  - 方案: [202602221450_checkin-sites](archive/2026-02/202602221450_checkin-sites/)
+
 ## [0.4.11] - 2026-02-22
 
 ### 变更

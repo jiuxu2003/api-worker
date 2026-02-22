@@ -5,6 +5,7 @@ import type { AppEnv } from "./env";
 import { adminAuth } from "./middleware/adminAuth";
 import authRoutes from "./routes/auth";
 import channelRoutes from "./routes/channels";
+import checkinSiteRoutes from "./routes/checkin-sites";
 import dashboardRoutes from "./routes/dashboard";
 import modelRoutes from "./routes/models";
 import newapiChannelRoutes from "./routes/newapiChannels";
@@ -100,6 +101,7 @@ app.get("/health", (c) => c.json({ ok: true }));
 
 app.route("/api/auth", authRoutes);
 app.route("/api/channels", channelRoutes);
+app.route("/api/checkin-sites", checkinSiteRoutes);
 app.route("/api/models", modelRoutes);
 app.route("/api/tokens", tokenRoutes);
 app.route("/api/usage", usageRoutes);

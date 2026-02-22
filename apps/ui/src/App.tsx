@@ -9,6 +9,7 @@ import {
 import { createApiFetch } from "./core/api";
 import {
 	initialChannelForm,
+	initialCheckinSiteForm,
 	initialData,
 	initialSettingsForm,
 	tabs,
@@ -17,6 +18,9 @@ import type {
 	AdminData,
 	Channel,
 	ChannelForm,
+	CheckinSite,
+	CheckinSiteForm,
+	CheckinSummary,
 	DashboardData,
 	Settings,
 	SettingsForm,
@@ -27,6 +31,7 @@ import type {
 import { toggleStatus } from "./core/utils";
 import { AppLayout } from "./features/AppLayout";
 import { ChannelsView } from "./features/ChannelsView";
+import { CheckinSitesView } from "./features/CheckinSitesView";
 import { DashboardView } from "./features/DashboardView";
 import { LoginView } from "./features/LoginView";
 import { ModelsView } from "./features/ModelsView";
@@ -53,6 +58,7 @@ const tabToPath: Record<TabId, string> = {
 	models: "/models",
 	tokens: "/tokens",
 	usage: "/usage",
+	"checkin-sites": "/checkin-sites",
 	settings: "/settings",
 };
 
@@ -62,6 +68,7 @@ const pathToTab: Record<string, TabId> = {
 	"/models": "models",
 	"/tokens": "tokens",
 	"/usage": "usage",
+	"/checkin-sites": "checkin-sites",
 	"/settings": "settings",
 };
 
@@ -95,8 +102,18 @@ const App = () => {
 	const [channelForm, setChannelForm] = useState<ChannelForm>(() => ({
 		...initialChannelForm,
 	}));
+	const [editingCheckinSite, setEditingCheckinSite] =
+		useState<CheckinSite | null>(null);
+	const [checkinSiteForm, setCheckinSiteForm] = useState<CheckinSiteForm>(() => ({
+		...initialCheckinSiteForm,
+	}));
 	const [isChannelModalOpen, setChannelModalOpen] = useState(false);
 	const [isTokenModalOpen, setTokenModalOpen] = useState(false);
+	const [isCheckinModalOpen, setCheckinModalOpen] = useState(false);
+	const [checkinSummary, setCheckinSummary] = useState<CheckinSummary | null>(
+		null,
+	);
+	const [checkinLastRun, setCheckinLastRun] = useState<string | null>(null);
 
 	const updateToken = useCallback((next: string | null) => {
 		setToken(next);
@@ -147,6 +164,13 @@ const App = () => {
 		setData((prev) => ({ ...prev, settings }));
 	}, [apiFetch]);
 
+	const loadCheckinSites = useCallback(async () => {
+		const result = await apiFetch<{ sites: CheckinSite[] }>(
+			"/api/checkin-sites",
+		);
+		setData((prev) => ({ ...prev, checkinSites: result.sites }));
+	}, [apiFetch]);
+
 	const loadTab = useCallback(
 		async (tabId: TabId) => {
 			setLoading(true);
@@ -170,6 +194,9 @@ const App = () => {
 				if (tabId === "settings") {
 					await loadSettings();
 				}
+				if (tabId === "checkin-sites") {
+					await loadCheckinSites();
+				}
 			} catch (error) {
 				setNotice((error as Error).message);
 			} finally {
@@ -181,6 +208,7 @@ const App = () => {
 			loadDashboard,
 			loadModels,
 			loadSettings,
+			loadCheckinSites,
 			loadTokens,
 			loadUsage,
 		],
@@ -211,6 +239,10 @@ const App = () => {
 			log_retention_days: String(data.settings.log_retention_days ?? 30),
 			session_ttl_hours: String(data.settings.session_ttl_hours ?? 12),
 			admin_password: "",
+			checkin_schedule_enabled: Boolean(
+				data.settings.checkin_schedule_enabled ?? false,
+			),
+			checkin_schedule_time: data.settings.checkin_schedule_time ?? "00:10",
 		});
 	}, [data.settings]);
 
@@ -246,6 +278,13 @@ const App = () => {
 	const handleSettingsFormChange = useCallback(
 		(patch: Partial<SettingsForm>) => {
 			setSettingsForm((prev) => ({ ...prev, ...patch }));
+		},
+		[],
+	);
+
+	const handleCheckinFormChange = useCallback(
+		(patch: Partial<CheckinSiteForm>) => {
+			setCheckinSiteForm((prev) => ({ ...prev, ...patch }));
 		},
 		[],
 	);
@@ -295,6 +334,13 @@ const App = () => {
 		setNotice("");
 	}, []);
 
+	const openCheckinCreate = useCallback(() => {
+		setEditingCheckinSite(null);
+		setCheckinSiteForm({ ...initialCheckinSiteForm });
+		setCheckinModalOpen(true);
+		setNotice("");
+	}, []);
+
 	const startChannelEdit = useCallback((channel: Channel) => {
 		setEditingChannel(channel);
 		setChannelForm({
@@ -309,6 +355,24 @@ const App = () => {
 
 	const closeTokenModal = useCallback(() => {
 		setTokenModalOpen(false);
+	}, []);
+
+	const closeCheckinModal = useCallback(() => {
+		setCheckinModalOpen(false);
+	}, []);
+
+	const startCheckinEdit = useCallback((site: CheckinSite) => {
+		setEditingCheckinSite(site);
+		setCheckinSiteForm({
+			name: site.name ?? "",
+			base_url: site.base_url ?? "",
+			checkin_url: site.checkin_url ?? "",
+			token: site.token ?? "",
+			userid: site.userid ?? "",
+			status: site.status ?? "active",
+		});
+		setCheckinModalOpen(true);
+		setNotice("");
 	}, []);
 
 	const handleChannelSubmit = useCallback(
@@ -392,14 +456,58 @@ const App = () => {
 		[apiFetch, loadTokens],
 	);
 
+	const handleCheckinSubmit = useCallback(
+		async (event: Event) => {
+			event.preventDefault();
+			const payload = {
+				name: checkinSiteForm.name.trim(),
+				base_url: checkinSiteForm.base_url.trim(),
+				checkin_url: checkinSiteForm.checkin_url.trim() || null,
+				token: checkinSiteForm.token.trim(),
+				userid: checkinSiteForm.userid.trim(),
+				status: checkinSiteForm.status,
+			};
+			try {
+				if (editingCheckinSite) {
+					await apiFetch(`/api/checkin-sites/${editingCheckinSite.id}`, {
+						method: "PATCH",
+						body: JSON.stringify(payload),
+					});
+					setNotice("签到站点已更新");
+				} else {
+					await apiFetch("/api/checkin-sites", {
+						method: "POST",
+						body: JSON.stringify(payload),
+					});
+					setNotice("签到站点已创建");
+				}
+				setCheckinModalOpen(false);
+				setEditingCheckinSite(null);
+				setCheckinSiteForm({ ...initialCheckinSiteForm });
+				await loadCheckinSites();
+			} catch (error) {
+				setNotice((error as Error).message);
+			}
+		},
+		[
+			apiFetch,
+			checkinSiteForm,
+			editingCheckinSite,
+			loadCheckinSites,
+		],
+	);
+
 	const handleSettingsSubmit = useCallback(
 		async (event: Event) => {
 			event.preventDefault();
 			const retention = Number(settingsForm.log_retention_days);
 			const sessionTtlHours = Number(settingsForm.session_ttl_hours);
-			const payload: Record<string, number | string> = {
+			const payload: Record<string, number | string | boolean> = {
 				log_retention_days: retention,
 				session_ttl_hours: sessionTtlHours,
+				checkin_schedule_enabled: settingsForm.checkin_schedule_enabled,
+				checkin_schedule_time:
+					settingsForm.checkin_schedule_time.trim() || "00:10",
 			};
 			const password = settingsForm.admin_password.trim();
 			if (password) {
@@ -524,6 +632,64 @@ const App = () => {
 		[apiFetch, loadTokens],
 	);
 
+	const handleCheckinToggle = useCallback(
+		async (id: string, status: string) => {
+			try {
+				const next = toggleStatus(status);
+				await apiFetch(`/api/checkin-sites/${id}`, {
+					method: "PATCH",
+					body: JSON.stringify({ status: next }),
+				});
+				await loadCheckinSites();
+				setNotice(`签到站点已${next === "active" ? "启用" : "停用"}`);
+			} catch (error) {
+				setNotice((error as Error).message);
+			}
+		},
+		[apiFetch, loadCheckinSites],
+	);
+
+	const handleCheckinDelete = useCallback(
+		async (id: string) => {
+			try {
+				await apiFetch(`/api/checkin-sites/${id}`, { method: "DELETE" });
+				await loadCheckinSites();
+				setNotice("签到站点已删除");
+			} catch (error) {
+				setNotice((error as Error).message);
+			}
+		},
+		[apiFetch, loadCheckinSites],
+	);
+
+	const handleCheckinRunAll = useCallback(async () => {
+		try {
+			const result = await apiFetch<{
+				results: Array<{
+					id: string;
+					name: string;
+					status: "success" | "failed" | "skipped";
+					message: string;
+					checkin_date?: string | null;
+				}>;
+				summary: CheckinSummary;
+				runs_at: string;
+			}>("/api/checkin-sites/checkin-all", {
+				method: "POST",
+			});
+			await loadCheckinSites();
+			setCheckinSummary(result.summary);
+			setCheckinLastRun(result.runs_at);
+			setNotice(
+				result.summary.failed > 0
+					? "一键签到完成，有部分站点失败。"
+					: "一键签到完成。",
+			);
+		} catch (error) {
+			setNotice((error as Error).message);
+		}
+	}, [apiFetch, loadCheckinSites]);
+
 	const handleUsageRefresh = useCallback(async () => {
 		try {
 			await loadUsage();
@@ -633,6 +799,26 @@ const App = () => {
 					adminPasswordSet={data.settings?.admin_password_set ?? false}
 					onSubmit={handleSettingsSubmit}
 					onFormChange={handleSettingsFormChange}
+				/>
+			);
+		}
+		if (activeTab === "checkin-sites") {
+			return (
+				<CheckinSitesView
+					sites={data.checkinSites}
+					form={checkinSiteForm}
+					isModalOpen={isCheckinModalOpen}
+					editingSite={editingCheckinSite}
+					summary={checkinSummary}
+					lastRun={checkinLastRun}
+					onCreate={openCheckinCreate}
+					onEdit={startCheckinEdit}
+					onCloseModal={closeCheckinModal}
+					onSubmit={handleCheckinSubmit}
+					onFormChange={handleCheckinFormChange}
+					onToggle={handleCheckinToggle}
+					onDelete={handleCheckinDelete}
+					onRunAll={handleCheckinRunAll}
 				/>
 			);
 		}

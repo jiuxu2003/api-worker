@@ -14,13 +14,14 @@
 | usage | 使用日志与留存 | 🚧 | [usage.md](./usage.md) |
 | dashboard | 数据面板统计 | 🚧 | [dashboard.md](./dashboard.md) |
 | settings | 系统配置 | 🚧 | [settings.md](./settings.md) |
+| checkin | 签到站点管理 | 🚧 | [checkin.md](./checkin.md) |
 | admin-ui | 管理台前端 | 🚧 | [admin-ui.md](./admin-ui.md) |
 | deploy-workflow | GitHub Actions 部署流程 | 🚧 | [deploy-workflow.md](./deploy-workflow.md) |
 
 ## 模块依赖关系
 
 ```
-admin-ui → auth, channels, models, tokens, usage, dashboard, settings
+admin-ui → auth, channels, models, tokens, usage, dashboard, settings, checkin
 proxy → channels, tokens, usage
 dashboard → usage, tokens
 models → channels
