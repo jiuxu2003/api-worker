@@ -1,0 +1,30 @@
+name: Sync Fork
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync upstream
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/lsy2246/api-worker.git
+          git fetch upstream
+
+          # 合并上游，遇到冲突时保留自己的版本（保护本地新增文件如此 workflow）
+          git merge upstream/main --no-edit --strategy-option ours || true
+
+          # 确保此文件始终保留
+          git checkout HEAD -- .github/workflows/sync-fork.yml
+          git diff --cached --quiet || git commit -m "chore: preserve sync-fork workflow"
+
+          git push
