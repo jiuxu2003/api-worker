@@ -83,7 +83,7 @@ export const SitesView = ({
 	const pageItems = buildPageItems(sitePage, siteTotalPages);
 	const today = getBeijingDateString();
 	const isOfficialType =
-		siteForm.site_type === "chatgpt" ||
+		siteForm.site_type === "openai" ||
 		siteForm.site_type === "claude" ||
 		siteForm.site_type === "gemini";
 	const needsSystemToken = !isOfficialType;
@@ -593,10 +593,10 @@ export const SitesView = ({
 											subapi
 										</option>
 										<option
-											value="chatgpt"
-											selected={siteForm.site_type === "chatgpt"}
+											value="openai"
+											selected={siteForm.site_type === "openai"}
 										>
-											chatgpt
+											openai
 										</option>
 										<option
 											value="claude"

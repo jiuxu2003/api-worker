@@ -34,7 +34,7 @@ export const SITE_TYPE_LABELS: Record<Site["site_type"], string> = {
 	"new-api": "New API",
 	"done-hub": "Done Hub",
 	subapi: "Sub API",
-	chatgpt: "ChatGPT",
+	openai: "OpenAI",
 	claude: "Claude",
 	gemini: "Gemini",
 };

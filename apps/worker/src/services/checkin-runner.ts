@@ -7,7 +7,6 @@ import {
 	runCheckin,
 	summarizeCheckin,
 } from "./checkin";
-import { parseSiteMetadata } from "./site-metadata";
 
 export type CheckinRunResult = {
 	results: CheckinResultItem[];
@@ -24,13 +23,6 @@ export async function runCheckinAll(
 	const today = beijingDateString(now);
 
 	for (const channel of channelRows) {
-		if (channel.status !== "active") {
-			continue;
-		}
-		const metadata = parseSiteMetadata(channel.metadata_json);
-		if (metadata.site_type !== "new-api") {
-			continue;
-		}
 		const rawEnabled = channel.checkin_enabled ?? 0;
 		const checkinEnabled =
 			typeof rawEnabled === "boolean" ? rawEnabled : Number(rawEnabled) === 1;

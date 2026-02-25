@@ -2,7 +2,7 @@ export type SiteType =
 	| "new-api"
 	| "done-hub"
 	| "subapi"
-	| "chatgpt"
+	| "openai"
 	| "claude"
 	| "gemini";
 

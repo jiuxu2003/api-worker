@@ -52,7 +52,7 @@ const parseSiteType = (value: unknown): SiteType => {
 		value === "done-hub" ||
 		value === "new-api" ||
 		value === "subapi" ||
-		value === "chatgpt" ||
+		value === "openai" ||
 		value === "claude" ||
 		value === "gemini"
 	) {
@@ -72,7 +72,7 @@ const trimValue = (value: unknown): string => {
 };
 
 const DEFAULT_BASE_URL_BY_TYPE: Partial<Record<SiteType, string>> = {
-	chatgpt: "https://api.openai.com",
+	openai: "https://api.openai.com",
 	claude: "https://api.anthropic.com",
 	gemini: "https://generativelanguage.googleapis.com",
 };

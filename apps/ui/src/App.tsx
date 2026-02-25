@@ -75,7 +75,7 @@ const pathToTab: Record<string, TabId> = {
 };
 
 const DEFAULT_BASE_URL_BY_TYPE: Partial<Record<SiteType, string>> = {
-	chatgpt: "https://api.openai.com",
+	openai: "https://api.openai.com",
 	claude: "https://api.anthropic.com",
 	gemini: "https://generativelanguage.googleapis.com",
 };

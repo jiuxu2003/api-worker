@@ -4,6 +4,15 @@
 
 ### 微调
 
+- **[checkin]**: 自动签到不再依赖站点启用状态
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/src/services/checkin-runner.ts, tests/worker/checkin-runner.test.ts, helloagents/modules/sites.md
+- **[checkin]**: 自动签到仅依赖 checkin_enabled，不再限制 site_type
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/src/services/checkin-runner.ts, helloagents/modules/sites.md
+- **[sites]**: 站点类型名称从 chatgpt 调整为 openai
+  - 类型: 微调（无方案包）
+  - 文件: apps/ui/src/App.tsx, apps/ui/src/core/sites.ts, apps/ui/src/core/types.ts, apps/ui/src/features/SitesView.tsx, apps/worker/src/routes/sites.ts, apps/worker/src/services/site-metadata.ts, apps/worker/migrations/0003_rename_chatgpt_openai.sql, helloagents/modules/admin-ui.md, helloagents/modules/channels.md, helloagents/modules/sites.md
 - **[worker]**: Durable Object 迁移改用 new_sqlite_classes 以兼容免费计划
   - 类型: 微调（无方案包）
   - 文件: apps/worker/wrangler.toml

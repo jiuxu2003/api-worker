@@ -5,7 +5,7 @@ export type SiteType =
 	| "new-api"
 	| "done-hub"
 	| "subapi"
-	| "chatgpt"
+	| "openai"
 	| "claude"
 	| "gemini";
 
@@ -42,7 +42,7 @@ export function parseSiteMetadata(
 		rawType === "done-hub" ||
 		rawType === "new-api" ||
 		rawType === "subapi" ||
-		rawType === "chatgpt" ||
+		rawType === "openai" ||
 		rawType === "claude" ||
 		rawType === "gemini"
 			? (rawType as SiteType)
