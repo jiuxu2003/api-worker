@@ -33,6 +33,10 @@ type ChannelPayload = {
 	status?: string;
 	rate_limit?: number;
 	models?: unknown[];
+	system_token?: string;
+	system_userid?: string;
+	checkin_enabled?: boolean;
+	checkin_url?: string;
 };
 
 /**
@@ -133,10 +137,10 @@ channels.patch("/:id", async (c) => {
 		group_name: current.group_name ?? null,
 		priority: current.priority ?? 0,
 		metadata_json: current.metadata_json ?? null,
-		system_token: current.system_token ?? null,
-		system_userid: current.system_userid ?? null,
-		checkin_enabled: current.checkin_enabled ?? 0,
-		checkin_url: current.checkin_url ?? null,
+		system_token: body.system_token ?? current.system_token ?? null,
+		system_userid: body.system_userid ?? current.system_userid ?? null,
+		checkin_enabled: body.checkin_enabled ?? current.checkin_enabled ?? 0,
+		checkin_url: body.checkin_url ?? current.checkin_url ?? null,
 		last_checkin_date: current.last_checkin_date ?? null,
 		last_checkin_status: current.last_checkin_status ?? null,
 		last_checkin_message: current.last_checkin_message ?? null,

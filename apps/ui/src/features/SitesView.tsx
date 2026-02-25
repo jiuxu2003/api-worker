@@ -46,7 +46,8 @@ const sortableColumns: Array<{ key: SiteSortKey; label: string }> = [
 	{ key: "status", label: "状态" },
 	{ key: "weight", label: "权重" },
 	{ key: "tokens", label: "令牌" },
-	{ key: "checkin", label: "签到" },
+	{ key: "checkin_enabled", label: "自动签到" },
+	{ key: "checkin", label: "今日签到" },
 ];
 
 export const SitesView = ({
@@ -267,6 +268,14 @@ export const SitesView = ({
 													{callTokenCount > 0 ? `${callTokenCount} 个` : "-"}
 												</p>
 											</div>
+											{site.site_type === "new-api" && (
+												<div class="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+													<p>自动签到</p>
+													<p class="mt-1 font-semibold text-stone-700">
+														{site.checkin_enabled ? "已开启" : "已关闭"}
+													</p>
+												</div>
+											)}
 											<div class="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
 												<p>今日签到</p>
 												<p class="mt-1 font-semibold text-stone-700">
@@ -315,7 +324,7 @@ export const SitesView = ({
 						)}
 					</div>
 					<div class="hidden overflow-hidden rounded-xl border border-stone-200 md:block">
-						<div class="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.5fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_minmax(0,1.4fr)] gap-3 bg-stone-50 px-4 py-3 text-xs uppercase tracking-widest text-stone-500">
+						<div class="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.5fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_minmax(0,1.4fr)] gap-3 bg-stone-50 px-4 py-3 text-xs uppercase tracking-widest text-stone-500">
 							{sortableColumns.map((column) => (
 								<div key={column.key}>
 									<button
@@ -349,7 +358,7 @@ export const SitesView = ({
 									const callTokenCount = site.call_tokens?.length ?? 0;
 									return (
 										<div
-											class={`grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.5fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_minmax(0,1.4fr)] items-center gap-3 px-4 py-4 text-sm ${
+											class={`grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.5fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_minmax(0,1.4fr)] items-center gap-3 px-4 py-4 text-sm ${
 												editingSite?.id === site.id
 													? "bg-amber-50/60"
 													: "bg-white"
@@ -386,6 +395,9 @@ export const SitesView = ({
 											</div>
 											<div class="text-xs text-stone-600">
 												{callTokenCount > 0 ? `${callTokenCount} 个` : "-"}
+											</div>
+											<div class="text-xs text-stone-600">
+												{site.site_type === "new-api" ? (site.checkin_enabled ? "已开启" : "已关闭") : "-"}
 											</div>
 											<div class="text-xs text-stone-600">
 												{getSiteCheckinLabel(site, today)}
@@ -735,9 +747,6 @@ export const SitesView = ({
 										{isNewApi && (
 											<select
 												class="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
-												value={
-													siteForm.checkin_enabled ? "enabled" : "disabled"
-												}
 												onChange={(event) =>
 													onFormChange({
 														checkin_enabled:
@@ -746,8 +755,8 @@ export const SitesView = ({
 													})
 												}
 											>
-												<option value="disabled">自动签到关闭</option>
-												<option value="enabled">自动签到开启</option>
+												<option value="disabled" selected={!siteForm.checkin_enabled}>自动签到关闭</option>
+												<option value="enabled" selected={siteForm.checkin_enabled}>自动签到开启</option>
 											</select>
 										)}
 										<input

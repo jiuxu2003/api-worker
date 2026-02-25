@@ -7,6 +7,7 @@ export type SiteSortKey =
 	| "status"
 	| "weight"
 	| "tokens"
+	| "checkin_enabled"
 	| "checkin";
 
 export type SiteSortDirection = "asc" | "desc";
@@ -78,6 +79,8 @@ const getSortValue = (site: Site, key: SiteSortKey, today: string) => {
 			return Number(site.weight ?? 0);
 		case "tokens":
 			return Number(site.call_tokens?.length ?? 0);
+		case "checkin_enabled":
+			return site.site_type === "new-api" ? (site.checkin_enabled ? "已开启" : "已关闭") : "-";
 		case "checkin":
 			return getSiteCheckinLabel(site, today);
 		default:
