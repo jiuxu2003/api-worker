@@ -566,7 +566,6 @@ export const SitesView = ({
 										class="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
 										id="site-type"
 										name="site_type"
-										value={siteForm.site_type}
 										onChange={(event) =>
 											onFormChange({
 												site_type: (event.currentTarget as HTMLSelectElement)
@@ -574,12 +573,42 @@ export const SitesView = ({
 											})
 										}
 									>
-										<option value="new-api">new-api</option>
-										<option value="done-hub">done-hub</option>
-										<option value="subapi">subapi</option>
-										<option value="chatgpt">chatgpt</option>
-										<option value="claude">claude</option>
-										<option value="gemini">gemini</option>
+										<option
+											value="new-api"
+											selected={siteForm.site_type === "new-api"}
+										>
+											new-api
+										</option>
+										<option
+											value="done-hub"
+											selected={siteForm.site_type === "done-hub"}
+										>
+											done-hub
+										</option>
+										<option
+											value="subapi"
+											selected={siteForm.site_type === "subapi"}
+										>
+											subapi
+										</option>
+										<option
+											value="chatgpt"
+											selected={siteForm.site_type === "chatgpt"}
+										>
+											chatgpt
+										</option>
+										<option
+											value="claude"
+											selected={siteForm.site_type === "claude"}
+										>
+											claude
+										</option>
+										<option
+											value="gemini"
+											selected={siteForm.site_type === "gemini"}
+										>
+											gemini
+										</option>
 									</select>
 								</div>
 							</div>
@@ -639,7 +668,6 @@ export const SitesView = ({
 										class="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
 										id="site-status"
 										name="status"
-										value={siteForm.status}
 										onChange={(event) =>
 											onFormChange({
 												status: (event.currentTarget as HTMLSelectElement)
@@ -647,8 +675,18 @@ export const SitesView = ({
 											})
 										}
 									>
-										<option value="active">启用</option>
-										<option value="disabled">禁用</option>
+										<option
+											value="active"
+											selected={siteForm.status === "active"}
+										>
+											启用
+										</option>
+										<option
+											value="disabled"
+											selected={siteForm.status === "disabled"}
+										>
+											禁用
+										</option>
 									</select>
 								</div>
 							</div>

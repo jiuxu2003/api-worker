@@ -4,6 +4,9 @@
 
 ### 微调
 
+- **[admin-ui]**: 编辑站点时站点类型/状态选择与当前值一致
+  - 类型: 微调（无方案包）
+  - 文件: apps/ui/src/features/SitesView.tsx:567-689
 - **[ci]**: push 变更检测在 before 提交缺失时按全量变更处理并拉全历史
   - 类型: 微调（无方案包）
   - 文件: .github/workflows/deploy.yml:45-100
