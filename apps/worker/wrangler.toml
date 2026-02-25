@@ -24,7 +24,7 @@ class_name = "CheckinScheduler"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["CheckinScheduler"]
+new_sqlite_classes = ["CheckinScheduler"]
 
 
 

@@ -4,6 +4,9 @@
 
 ### 微调
 
+- **[worker]**: Durable Object 迁移改用 new_sqlite_classes 以兼容免费计划
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/wrangler.toml
 - **[admin-ui]**: 令牌创建表单使用 FormData.forEach 以兼容缺少 entries 的类型定义
   - 类型: 微调（无方案包）
   - 文件: apps/ui/src/App.tsx
