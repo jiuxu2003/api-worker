@@ -148,3 +148,5 @@ app.notFound(async (c) => {
 });
 
 export default app;
+
+export { CheckinScheduler } from "./services/checkin-scheduler";

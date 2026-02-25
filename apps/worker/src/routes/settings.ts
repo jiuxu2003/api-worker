@@ -10,6 +10,10 @@ import {
 	setRetentionDays,
 	setSessionTtlHours,
 } from "../services/settings";
+import {
+	getCheckinSchedulerStub,
+	shouldResetLastRun,
+} from "../services/checkin-scheduler";
 import { sha256Hex } from "../utils/crypto";
 import { jsonError } from "../utils/http";
 
@@ -42,6 +46,8 @@ settings.put("/", async (c) => {
 	}
 
 	let touched = false;
+	let scheduleTouched = false;
+	let scheduleReset = false;
 
 	if (body.log_retention_days !== undefined) {
 		const days = Number(body.log_retention_days);
@@ -131,10 +137,23 @@ settings.put("/", async (c) => {
 		}
 		await setCheckinSchedule(c.env.DB, { enabled, time: timeValue });
 		touched = true;
+		scheduleTouched = true;
+		scheduleReset = shouldResetLastRun(current, {
+			enabled,
+			time: timeValue,
+		});
 	}
 
 	if (!touched) {
 		return jsonError(c, 400, "settings_empty", "settings_empty");
+	}
+
+	if (scheduleTouched) {
+		const scheduler = getCheckinSchedulerStub(c.env.CHECKIN_SCHEDULER);
+		await scheduler.fetch("https://checkin-scheduler/reschedule", {
+			method: "POST",
+			...(scheduleReset ? { body: JSON.stringify({ reset: true }) } : {}),
+		});
 	}
 
 	return c.json({ ok: true });

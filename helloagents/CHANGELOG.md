@@ -89,6 +89,15 @@
   - 类型: 微调（无方案包）
   - 文件: apps/worker/src/routes/proxy.ts
 
+## [0.8.3] - 2026-02-25
+
+### 修复
+- **[checkin]**: 后端定时自动签到接入 Durable Object Alarm 调度
+  - 方案: [202602251604_checkin-do-alarm](archive/2026-02/202602251604_checkin-do-alarm/)
+  - 决策: checkin-do-alarm#D001(采用 Durable Object Alarm)
+- **[checkin]**: 修改签到时间后当日可再次触发自动签到
+  - 方案: [202602251604_checkin-do-alarm](archive/2026-02/202602251604_checkin-do-alarm/)
+
 ## [0.8.2] - 2026-02-23
 
 ### 修复
