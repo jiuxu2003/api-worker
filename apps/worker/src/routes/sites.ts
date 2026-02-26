@@ -10,13 +10,8 @@ import {
 	insertChannel,
 	listChannels,
 	updateChannel,
-	updateChannelCheckinResult,
 } from "../services/channel-repo";
-import {
-	type CheckinResultItem,
-	runCheckin,
-	summarizeCheckin,
-} from "../services/checkin";
+import { runCheckinAll } from "../services/checkin-runner";
 import {
 	buildSiteMetadata,
 	parseSiteMetadata,
@@ -24,7 +19,7 @@ import {
 } from "../services/site-metadata";
 import { generateToken } from "../utils/crypto";
 import { jsonError } from "../utils/http";
-import { beijingDateString, nowIso } from "../utils/time";
+import { nowIso } from "../utils/time";
 import { normalizeBaseUrl } from "../utils/url";
 
 const sites = new Hono<AppEnv>();
@@ -57,7 +52,7 @@ const parseSiteType = (value: unknown): SiteType => {
 		value === "done-hub" ||
 		value === "new-api" ||
 		value === "subapi" ||
-		value === "chatgpt" ||
+		value === "openai" ||
 		value === "claude" ||
 		value === "gemini"
 	) {
@@ -77,7 +72,7 @@ const trimValue = (value: unknown): string => {
 };
 
 const DEFAULT_BASE_URL_BY_TYPE: Partial<Record<SiteType, string>> = {
-	chatgpt: "https://api.openai.com",
+	openai: "https://api.openai.com",
 	claude: "https://api.anthropic.com",
 	gemini: "https://generativelanguage.googleapis.com",
 };
@@ -429,59 +424,11 @@ sites.delete("/:id", async (c) => {
 });
 
 sites.post("/checkin-all", async (c) => {
-	const channelRows = await listChannels(c.env.DB, { orderBy: "created_at" });
-	const results: CheckinResultItem[] = [];
-	const today = beijingDateString();
-	for (const channel of channelRows) {
-		if (channel.status !== "active") {
-			continue;
-		}
-		const metadata = parseSiteMetadata(channel.metadata_json);
-		if (metadata.site_type !== "new-api") {
-			continue;
-		}
-		const rawEnabled = channel.checkin_enabled ?? 0;
-		const checkinEnabled =
-			typeof rawEnabled === "boolean" ? rawEnabled : Number(rawEnabled) === 1;
-		if (!checkinEnabled) {
-			continue;
-		}
-		const alreadyChecked =
-			channel.last_checkin_date === today &&
-			(channel.last_checkin_status === "success" ||
-				channel.last_checkin_status === "skipped");
-		if (alreadyChecked) {
-			results.push({
-				id: channel.id,
-				name: channel.name,
-				status: "skipped",
-				message: channel.last_checkin_message ?? "今日已签到",
-				checkin_date: channel.last_checkin_date ?? today,
-			});
-			continue;
-		}
-		const result = await runCheckin({
-			id: channel.id,
-			name: channel.name,
-			base_url: String(channel.base_url),
-			checkin_url: channel.checkin_url ?? null,
-			system_token: channel.system_token ?? null,
-			system_userid: channel.system_userid ?? null,
-		});
-		const checkinDate = result.checkin_date ?? today;
-		await updateChannelCheckinResult(c.env.DB, channel.id, {
-			last_checkin_date: checkinDate,
-			last_checkin_status: result.status,
-			last_checkin_message: result.message,
-			last_checkin_at: nowIso(),
-		});
-		results.push({ ...result, checkin_date: checkinDate });
-	}
-	const summary = summarizeCheckin(results);
+	const result = await runCheckinAll(c.env.DB, new Date());
 	return c.json({
-		results,
-		summary,
-		runs_at: nowIso(),
+		results: result.results,
+		summary: result.summary,
+		runs_at: result.runsAt,
 	});
 });
 

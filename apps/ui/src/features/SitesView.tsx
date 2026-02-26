@@ -1,10 +1,10 @@
-import type { CheckinSummary, Site, SiteForm } from "../core/types";
 import {
 	getSiteCheckinLabel,
 	getSiteTypeLabel,
 	type SiteSortKey,
 	type SiteSortState,
 } from "../core/sites";
+import type { CheckinSummary, Site, SiteForm } from "../core/types";
 import {
 	buildPageItems,
 	formatDateTime,
@@ -37,6 +37,7 @@ type SitesViewProps = {
 	onSortChange: (next: SiteSortState) => void;
 	onFormChange: (patch: Partial<SiteForm>) => void;
 	onRunAll: () => void;
+	onTestAll: () => void;
 };
 
 const pageSizeOptions = [10, 20, 50];
@@ -46,7 +47,8 @@ const sortableColumns: Array<{ key: SiteSortKey; label: string }> = [
 	{ key: "status", label: "状态" },
 	{ key: "weight", label: "权重" },
 	{ key: "tokens", label: "令牌" },
-	{ key: "checkin", label: "签到" },
+	{ key: "checkin_enabled", label: "自动签到" },
+	{ key: "checkin", label: "今日签到" },
 ];
 
 export const SitesView = ({
@@ -75,12 +77,13 @@ export const SitesView = ({
 	onSortChange,
 	onFormChange,
 	onRunAll,
+	onTestAll,
 }: SitesViewProps) => {
 	const isEditing = Boolean(editingSite);
 	const pageItems = buildPageItems(sitePage, siteTotalPages);
 	const today = getBeijingDateString();
 	const isOfficialType =
-		siteForm.site_type === "chatgpt" ||
+		siteForm.site_type === "openai" ||
 		siteForm.site_type === "claude" ||
 		siteForm.site_type === "gemini";
 	const needsSystemToken = !isOfficialType;
@@ -156,6 +159,13 @@ export const SitesView = ({
 							一键签到
 						</button>
 						<button
+							class="h-9 rounded-full border border-stone-200 bg-stone-100 px-4 text-xs font-semibold text-stone-700 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+							type="button"
+							onClick={onTestAll}
+						>
+							一键测试
+						</button>
+						<button
 							class="h-9 rounded-full bg-stone-900 px-4 text-xs font-semibold text-white transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
 							type="button"
 							onClick={onCreate}
@@ -172,9 +182,7 @@ export const SitesView = ({
 							placeholder="站点名称或 URL"
 							value={siteSearch}
 							onInput={(event) =>
-								onSearchChange(
-									(event.currentTarget as HTMLInputElement).value,
-								)
+								onSearchChange((event.currentTarget as HTMLInputElement).value)
 							}
 						/>
 					</label>
@@ -209,10 +217,6 @@ export const SitesView = ({
 								const systemReady = Boolean(
 									site.system_token && site.system_userid,
 								);
-								const checkinEnabled =
-									site.site_type === "new-api" && Boolean(site.checkin_enabled);
-								const showCheckin =
-									site.site_type === "new-api" && checkinEnabled;
 								const callTokenCount = site.call_tokens?.length ?? 0;
 								return (
 									<div
@@ -242,12 +246,12 @@ export const SitesView = ({
 												{isActive ? "启用" : "禁用"}
 											</span>
 										</div>
-											<div class="mt-3 flex items-center justify-between text-xs text-stone-500">
-												<span>类型</span>
-												<span class="font-semibold text-stone-700">
-													{getSiteTypeLabel(site.site_type)}
-												</span>
-											</div>
+										<div class="mt-3 flex items-center justify-between text-xs text-stone-500">
+											<span>类型</span>
+											<span class="font-semibold text-stone-700">
+												{getSiteTypeLabel(site.site_type)}
+											</span>
+										</div>
 										<div class="mt-3 flex items-center justify-between text-xs text-stone-500">
 											<span>权重</span>
 											<span class="font-semibold text-stone-700">
@@ -267,16 +271,26 @@ export const SitesView = ({
 													{callTokenCount > 0 ? `${callTokenCount} 个` : "-"}
 												</p>
 											</div>
+											{site.site_type === "new-api" && (
+												<div class="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+													<p>自动签到</p>
+													<p class="mt-1 font-semibold text-stone-700">
+														{site.checkin_enabled ? "已开启" : "已关闭"}
+													</p>
+												</div>
+											)}
 											<div class="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
 												<p>今日签到</p>
 												<p class="mt-1 font-semibold text-stone-700">
 													{getSiteCheckinLabel(site, today)}
 												</p>
-												{message && showCheckin && (
-													<p class="mt-1 truncate text-[11px] text-stone-500">
-														{message}
-													</p>
-												)}
+												{message &&
+													site.site_type === "new-api" &&
+													site.checkin_enabled && (
+														<p class="mt-1 truncate text-[11px] text-stone-500">
+															{message}
+														</p>
+													)}
 											</div>
 										</div>
 										<div class="mt-3 grid grid-cols-2 gap-2">
@@ -315,7 +329,7 @@ export const SitesView = ({
 						)}
 					</div>
 					<div class="hidden overflow-hidden rounded-xl border border-stone-200 md:block">
-						<div class="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.5fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_minmax(0,1.4fr)] gap-3 bg-stone-50 px-4 py-3 text-xs uppercase tracking-widest text-stone-500">
+						<div class="grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.5fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_minmax(0,1.4fr)] gap-3 bg-stone-50 px-4 py-3 text-xs uppercase tracking-widest text-stone-500">
 							{sortableColumns.map((column) => (
 								<div key={column.key}>
 									<button
@@ -324,9 +338,7 @@ export const SitesView = ({
 										onClick={() => toggleSort(column.key)}
 									>
 										{column.label}
-										<span class="text-[10px]">
-											{sortIndicator(column.key)}
-										</span>
+										<span class="text-[10px]">{sortIndicator(column.key)}</span>
 									</button>
 								</div>
 							))}
@@ -340,16 +352,10 @@ export const SitesView = ({
 							<div class="divide-y divide-stone-100">
 								{pagedSites.map((site) => {
 									const isActive = site.status === "active";
-									const isToday = site.last_checkin_date === today;
-									const checkinEnabled =
-										site.site_type === "new-api" &&
-										Boolean(site.checkin_enabled);
-									const showCheckin =
-										site.site_type === "new-api" && checkinEnabled;
 									const callTokenCount = site.call_tokens?.length ?? 0;
 									return (
 										<div
-											class={`grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.5fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_minmax(0,1.4fr)] items-center gap-3 px-4 py-4 text-sm ${
+											class={`grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.5fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_minmax(0,1.4fr)] items-center gap-3 px-4 py-4 text-sm ${
 												editingSite?.id === site.id
 													? "bg-amber-50/60"
 													: "bg-white"
@@ -386,6 +392,13 @@ export const SitesView = ({
 											</div>
 											<div class="text-xs text-stone-600">
 												{callTokenCount > 0 ? `${callTokenCount} 个` : "-"}
+											</div>
+											<div class="text-xs text-stone-600">
+												{site.site_type === "new-api"
+													? site.checkin_enabled
+														? "已开启"
+														: "已关闭"
+													: "-"}
 											</div>
 											<div class="text-xs text-stone-600">
 												{getSiteCheckinLabel(site, today)}
@@ -554,7 +567,6 @@ export const SitesView = ({
 										class="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
 										id="site-type"
 										name="site_type"
-										value={siteForm.site_type}
 										onChange={(event) =>
 											onFormChange({
 												site_type: (event.currentTarget as HTMLSelectElement)
@@ -562,12 +574,42 @@ export const SitesView = ({
 											})
 										}
 									>
-										<option value="new-api">new-api</option>
-										<option value="done-hub">done-hub</option>
-										<option value="subapi">subapi</option>
-										<option value="chatgpt">chatgpt</option>
-										<option value="claude">claude</option>
-										<option value="gemini">gemini</option>
+										<option
+											value="new-api"
+											selected={siteForm.site_type === "new-api"}
+										>
+											new-api
+										</option>
+										<option
+											value="done-hub"
+											selected={siteForm.site_type === "done-hub"}
+										>
+											done-hub
+										</option>
+										<option
+											value="subapi"
+											selected={siteForm.site_type === "subapi"}
+										>
+											subapi
+										</option>
+										<option
+											value="openai"
+											selected={siteForm.site_type === "openai"}
+										>
+											openai
+										</option>
+										<option
+											value="claude"
+											selected={siteForm.site_type === "claude"}
+										>
+											claude
+										</option>
+										<option
+											value="gemini"
+											selected={siteForm.site_type === "gemini"}
+										>
+											gemini
+										</option>
 									</select>
 								</div>
 							</div>
@@ -627,7 +669,6 @@ export const SitesView = ({
 										class="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
 										id="site-status"
 										name="status"
-										value={siteForm.status}
 										onChange={(event) =>
 											onFormChange({
 												status: (event.currentTarget as HTMLSelectElement)
@@ -635,8 +676,18 @@ export const SitesView = ({
 											})
 										}
 									>
-										<option value="active">启用</option>
-										<option value="disabled">禁用</option>
+										<option
+											value="active"
+											selected={siteForm.status === "active"}
+										>
+											启用
+										</option>
+										<option
+											value="disabled"
+											selected={siteForm.status === "disabled"}
+										>
+											禁用
+										</option>
 									</select>
 								</div>
 							</div>
@@ -735,9 +786,6 @@ export const SitesView = ({
 										{isNewApi && (
 											<select
 												class="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
-												value={
-													siteForm.checkin_enabled ? "enabled" : "disabled"
-												}
 												onChange={(event) =>
 													onFormChange({
 														checkin_enabled:
@@ -746,8 +794,18 @@ export const SitesView = ({
 													})
 												}
 											>
-												<option value="disabled">自动签到关闭</option>
-												<option value="enabled">自动签到开启</option>
+												<option
+													value="disabled"
+													selected={!siteForm.checkin_enabled}
+												>
+													自动签到关闭
+												</option>
+												<option
+													value="enabled"
+													selected={siteForm.checkin_enabled}
+												>
+													自动签到开启
+												</option>
 											</select>
 										)}
 										<input

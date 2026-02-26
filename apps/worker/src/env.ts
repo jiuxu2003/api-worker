@@ -1,10 +1,14 @@
-import type { D1Database } from "@cloudflare/workers-types";
+import type {
+	D1Database,
+	DurableObjectNamespace,
+} from "@cloudflare/workers-types";
 
 export type Bindings = {
 	DB: D1Database;
 	CORS_ORIGIN?: string;
 	PROXY_RETRY_ROUNDS?: string;
 	PROXY_RETRY_DELAY_MS?: string;
+	CHECKIN_SCHEDULER: DurableObjectNamespace;
 };
 
 export type Variables = {

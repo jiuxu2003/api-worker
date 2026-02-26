@@ -4,6 +4,33 @@
 
 ### 微调
 
+- **[checkin]**: 自动签到不再依赖站点启用状态
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/src/services/checkin-runner.ts, tests/worker/checkin-runner.test.ts, helloagents/modules/sites.md
+- **[checkin]**: 自动签到仅依赖 checkin_enabled，不再限制 site_type
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/src/services/checkin-runner.ts, helloagents/modules/sites.md
+- **[sites]**: 站点类型名称从 chatgpt 调整为 openai
+  - 类型: 微调（无方案包）
+  - 文件: apps/ui/src/App.tsx, apps/ui/src/core/sites.ts, apps/ui/src/core/types.ts, apps/ui/src/features/SitesView.tsx, apps/worker/src/routes/sites.ts, apps/worker/src/services/site-metadata.ts, apps/worker/migrations/0003_rename_chatgpt_openai.sql, helloagents/modules/admin-ui.md, helloagents/modules/channels.md, helloagents/modules/sites.md
+- **[worker]**: Durable Object 迁移改用 new_sqlite_classes 以兼容免费计划
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/wrangler.toml
+- **[admin-ui]**: 令牌创建表单使用 FormData.forEach 以兼容缺少 entries 的类型定义
+  - 类型: 微调（无方案包）
+  - 文件: apps/ui/src/App.tsx
+- **[admin-ui]**: 清理站点列表未使用变量以通过 lint
+  - 类型: 微调（无方案包）
+  - 文件: apps/ui/src/features/SitesView.tsx
+- **[worker]**: 时间工具函数移除非空断言以满足 lint
+  - 类型: 微调（无方案包）
+  - 文件: apps/worker/src/utils/time.ts
+- **[admin-ui]**: 站点管理新增一键测试并汇总结果提示
+  - 类型: 微调（无方案包）
+  - 文件: apps/ui/src/App.tsx, apps/ui/src/features/SitesView.tsx, apps/ui/src/core/sites.ts, tests/ui/sites.test.ts
+- **[admin-ui]**: 编辑站点时站点类型/状态选择与当前值一致
+  - 类型: 微调（无方案包）
+  - 文件: apps/ui/src/features/SitesView.tsx:567-689
 - **[ci]**: push 变更检测在 before 提交缺失时按全量变更处理并拉全历史
   - 类型: 微调（无方案包）
   - 文件: .github/workflows/deploy.yml:45-100
@@ -88,6 +115,23 @@
 - **[proxy]**: 流式请求自动补 `stream_options.include_usage` 以获取 usage
   - 类型: 微调（无方案包）
   - 文件: apps/worker/src/routes/proxy.ts
+
+## [0.8.4] - 2026-02-25
+
+### 变更
+- **[checkin/settings]**: 定时签到改为始终启用，仅保留签到时间配置
+  - 方案: [202602251706_checkin-always-on](archive/2026-02/202602251706_checkin-always-on/)
+- **[admin-ui]**: 设置页移除定时签到启用开关
+  - 方案: [202602251706_checkin-always-on](archive/2026-02/202602251706_checkin-always-on/)
+
+## [0.8.3] - 2026-02-25
+
+### 修复
+- **[checkin]**: 后端定时自动签到接入 Durable Object Alarm 调度
+  - 方案: [202602251604_checkin-do-alarm](archive/2026-02/202602251604_checkin-do-alarm/)
+  - 决策: checkin-do-alarm#D001(采用 Durable Object Alarm)
+- **[checkin]**: 修改签到时间后当日可再次触发自动签到
+  - 方案: [202602251604_checkin-do-alarm](archive/2026-02/202602251604_checkin-do-alarm/)
 
 ## [0.8.2] - 2026-02-23
 
