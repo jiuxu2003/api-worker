@@ -20,6 +20,15 @@
 - **[worker/models]**: 引入通道模型能力表并基于“模型广场测试结果+可配置TTL（默认2小时）”进行模型发布与路由匹配
   - 类型: 微调（无方案包）
   - 文件: apps/worker/migrations/0004_add_channel_model_capabilities.sql, apps/worker/src/services/channel-model-capabilities.ts, apps/worker/src/services/channel-testing.ts, apps/worker/src/services/settings.ts, apps/worker/src/routes/settings.ts, apps/worker/src/routes/models.ts, apps/worker/src/routes/newapiUsers.ts, apps/worker/src/routes/proxy.ts, tests/worker/channel-model-capabilities.test.ts, tests/worker/newapi.test.ts, helloagents/modules/settings.md, helloagents/modules/models.md, helloagents/modules/proxy.md
+- **[worker/models]**: 运行时失败冷却与成功刷新能力表，TTL 过期回退模型列表
+  - 方案: [202603141718_model-health](archive/2026-03/202603141718_model-health/)
+  - 文件: apps/worker/src/routes/proxy.ts, apps/worker/src/services/channel-model-capabilities.ts, apps/worker/src/routes/models.ts, apps/worker/src/routes/newapiUsers.ts, apps/worker/src/services/settings.ts, apps/worker/src/routes/settings.ts, tests/worker/settings.test.ts, tests/worker/channel-model-capabilities.test.ts, .helloagents/modules/proxy.md, .helloagents/modules/models.md, .helloagents/modules/settings.md
+- **[proxy]**: 失败判定简化为非 2xx/超时即失败
+  - 方案: [202603141749_usage-summary](archive/2026-03/202603141749_usage-summary/)
+  - 文件: apps/worker/src/routes/proxy.ts
+- **[admin-ui/usage]**: 使用日志新增概述卡片（总量/成功/失败/错误率/平均延迟）
+  - 方案: [202603141749_usage-summary](archive/2026-03/202603141749_usage-summary/)
+  - 文件: apps/ui/src/core/utils.ts, apps/ui/src/features/UsageView.tsx, tests/ui/usage.test.ts, .helloagents/modules/usage.md, .helloagents/modules/admin-ui.md
 - **[worker/proxy]**: 移除临时调试日志（请求入口/出口与上游响应汇总）
   - 类型: 微调（无方案包）
   - 文件: apps/worker/src/index.ts, apps/worker/src/routes/proxy.ts

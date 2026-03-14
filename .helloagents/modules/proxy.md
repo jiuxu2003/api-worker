@@ -27,6 +27,8 @@
 - 允许 `metadata_json.header_override` 与 `metadata_json.query_override` 注入额外上游请求头/查询参数
 - Anthropic 默认注入 `anthropic-version=2023-06-01`，可通过 `header_override` 覆盖
 - 路由时优先使用模型能力表（TTL 内测试成功的模型），无能力记录时回退渠道声明模型列表
+- 上游失败/超时会记录到能力表并进入冷却期，冷却期内跳过对应渠道/模型
+- 上游成功响应会刷新能力表，清空错误并延长可用窗口
 
 ## 依赖关系
 - `channels` / `tokens` / `usage_logs` 表

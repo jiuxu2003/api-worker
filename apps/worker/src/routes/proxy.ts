@@ -17,8 +17,16 @@ import {
 	createWeightedOrder,
 	extractModels,
 } from "../services/channels";
-import { listVerifiedModelsByChannel } from "../services/channel-model-capabilities";
-import { getModelCapabilityTtlHours } from "../services/settings";
+import {
+	listCoolingDownChannelsForModel,
+	listVerifiedModelsByChannel,
+	recordChannelModelError,
+	upsertChannelModelCapabilities,
+} from "../services/channel-model-capabilities";
+import {
+	getModelCapabilityTtlHours,
+	getModelFailureCooldownMinutes,
+} from "../services/settings";
 import {
 	applyGeminiModelToPath,
 	buildUpstreamChatRequest,
@@ -55,6 +63,17 @@ type ExecutionContextLike = {
 	waitUntil: (promise: Promise<unknown>) => void;
 };
 
+function scheduleDbWrite(
+	c: { executionCtx?: ExecutionContextLike },
+	task: Promise<void>,
+): void {
+	if (c.executionCtx?.waitUntil) {
+		c.executionCtx.waitUntil(task);
+	} else {
+		task.catch(() => undefined);
+	}
+}
+
 function channelSupportsModel(
 	channel: ChannelRecord,
 	model: string | null,
@@ -64,19 +83,24 @@ function channelSupportsModel(
 		return true;
 	}
 	const verified = verifiedModelsByChannel.get(channel.id);
+	const declaredModels = extractModels(channel).map((entry) => entry.id);
 	const metadata = parseChannelMetadata(channel.metadata_json);
 	const mapped = resolveMappedModel(metadata.model_mapping, model);
+	const declaredAllows =
+		declaredModels.length === 0
+			? true
+			: (mapped ? declaredModels.includes(mapped) : false) ||
+				declaredModels.includes(model);
+	if (!declaredAllows) {
+		return false;
+	}
 	if (verified && verified.size > 0) {
 		if (mapped && verified.has(mapped)) {
 			return true;
 		}
 		return verified.has(model);
 	}
-	const declaredModels = extractModels(channel).map((entry) => entry.id);
-	if (mapped && declaredModels.includes(mapped)) {
-		return true;
-	}
-	return declaredModels.includes(model);
+	return true;
 }
 
 export function selectCandidateChannels(
@@ -318,11 +342,40 @@ proxy.all("/*", tokenAuth, async (c) => {
 		allowedChannels.map((channel) => channel.id),
 		ttlSeconds,
 	);
-	const candidates = selectCandidateChannels(
+	let candidates = selectCandidateChannels(
 		allowedChannels,
 		downstreamModel,
 		verifiedModelsByChannel,
 	);
+	const cooldownMinutes = await getModelFailureCooldownMinutes(c.env.DB);
+	const cooldownSeconds = Math.max(0, Math.floor(cooldownMinutes)) * 60;
+	if (downstreamModel && cooldownSeconds > 0 && candidates.length > 0) {
+		const coolingChannels = await listCoolingDownChannelsForModel(
+			c.env.DB,
+			candidates.map((channel) => channel.id),
+			downstreamModel,
+			cooldownSeconds,
+		);
+		if (coolingChannels.size > 0) {
+			candidates = candidates.filter(
+				(channel) => !coolingChannels.has(channel.id),
+			);
+			if (candidates.length === 0) {
+				console.warn("[proxy:model_cooldown]", {
+					path: c.req.path,
+					model: downstreamModel,
+					cooldown_minutes: cooldownMinutes,
+					blocked_channels: coolingChannels.size,
+				});
+				return jsonError(
+					c,
+					503,
+					"upstream_cooldown",
+					"upstream_cooldown",
+				);
+			}
+		}
+	}
 
 	if (candidates.length === 0 && allowedChannels.length > 0) {
 		console.warn("[proxy:no_compatible_channels]", {
@@ -345,6 +398,7 @@ proxy.all("/*", tokenAuth, async (c) => {
 		1000,
 		Number(c.env.PROXY_UPSTREAM_TIMEOUT_MS ?? "30000"),
 	);
+	const nowSeconds = Math.floor(Date.now() / 1000);
 	let lastResponse: Response | null = null;
 	let lastChannel: ChannelRecord | null = null;
 	let lastRequestPath = targetPath;
@@ -363,6 +417,7 @@ proxy.all("/*", tokenAuth, async (c) => {
 			verifiedModelsByChannel,
 		);
 		const upstreamModel = resolvedModel.model;
+		const recordModel = upstreamModel ?? downstreamModel;
 		if (
 			upstreamProvider === "gemini" &&
 			!upstreamModel &&
@@ -594,7 +649,30 @@ proxy.all("/*", tokenAuth, async (c) => {
 				selectedChannel = channel;
 				selectedUpstreamProvider = upstreamProvider;
 				selectedUpstreamModel = upstreamModel;
+				if (recordModel) {
+					scheduleDbWrite(
+						c,
+						upsertChannelModelCapabilities(
+							c.env.DB,
+							channel.id,
+							[recordModel],
+							nowSeconds,
+						),
+					);
+				}
 				break;
+			}
+			if (recordModel) {
+				scheduleDbWrite(
+					c,
+					recordChannelModelError(
+						c.env.DB,
+						channel.id,
+						recordModel,
+						String(response.status),
+						nowSeconds,
+					),
+				);
 			}
 		} catch (error) {
 			const isTimeout =
@@ -610,6 +688,18 @@ proxy.all("/*", tokenAuth, async (c) => {
 				reason: isTimeout ? "timeout" : "exception",
 				error: error instanceof Error ? error.message : String(error),
 			});
+			if (recordModel) {
+				scheduleDbWrite(
+					c,
+					recordChannelModelError(
+						c.env.DB,
+						channel.id,
+						recordModel,
+						isTimeout ? "timeout" : "exception",
+						nowSeconds,
+					),
+				);
+			}
 			lastResponse = null;
 		}
 	}

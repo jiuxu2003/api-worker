@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "hono/jsx/dom";
 import type { UsageLog } from "../core/types";
-import { buildPageItems, formatDateTime } from "../core/utils";
+import { buildPageItems, formatDateTime, summarizeUsageLogs } from "../core/utils";
 
 type UsageViewProps = {
 	usage: UsageLog[];
@@ -42,6 +42,7 @@ export const UsageView = ({ usage, onRefresh }: UsageViewProps) => {
 	const [pageSize, setPageSize] = useState(50);
 	const [page, setPage] = useState(1);
 	const total = usage.length;
+	const summary = useMemo(() => summarizeUsageLogs(usage), [usage]);
 	const totalPages = useMemo(
 		() => Math.max(1, Math.ceil(total / pageSize)),
 		[total, pageSize],
@@ -83,6 +84,31 @@ export const UsageView = ({ usage, onRefresh }: UsageViewProps) => {
 					>
 						刷新
 					</button>
+				</div>
+			</div>
+			<div class="mt-4 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3">
+				<div class="flex flex-wrap items-center gap-3 text-xs text-stone-600">
+					<span class="font-semibold text-stone-700">
+						概述（当前展示 {summary.total} 条）
+					</span>
+					<span class="rounded-full bg-emerald-100 px-3 py-1 font-semibold text-emerald-700">
+						成功 {summary.success}
+					</span>
+					<span class="rounded-full bg-rose-100 px-3 py-1 font-semibold text-rose-700">
+						失败 {summary.failed}
+					</span>
+					<span class="rounded-full bg-stone-200 px-3 py-1 font-semibold text-stone-700">
+						错误率 {summary.total === 0 ? "-" : `${summary.errorRate.toFixed(1)}%`}
+					</span>
+					<span class="rounded-full bg-stone-200 px-3 py-1 font-semibold text-stone-700">
+						平均延迟{" "}
+						{summary.avgLatencyMs === null
+							? "-"
+							: `${summary.avgLatencyMs.toFixed(0)} ms`}
+					</span>
+					<span class="rounded-full bg-stone-200 px-3 py-1 font-semibold text-stone-700">
+						总 Tokens {summary.totalTokens}
+					</span>
 				</div>
 			</div>
 			<div class="mt-4 overflow-hidden rounded-xl border border-stone-200">

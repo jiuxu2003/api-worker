@@ -1,3 +1,5 @@
+import type { UsageLog } from "./types";
+
 /**
  * Formats a datetime string for display.
  *
@@ -75,4 +77,42 @@ export const buildPageItems = (current: number, total: number): PageItem[] => {
 		}
 		return true;
 	});
+};
+
+export type UsageSummary = {
+	total: number;
+	success: number;
+	failed: number;
+	errorRate: number;
+	avgLatencyMs: number | null;
+	totalTokens: number;
+};
+
+export const summarizeUsageLogs = (logs: UsageLog[]): UsageSummary => {
+	const total = logs.length;
+	const success = logs.filter((log) => log.status === "ok").length;
+	const failed = total - success;
+	let latencySum = 0;
+	let latencyCount = 0;
+	let totalTokens = 0;
+	for (const log of logs) {
+		const latency = log.latency_ms;
+		if (latency !== null && latency !== undefined && !Number.isNaN(latency)) {
+			latencySum += latency;
+			latencyCount += 1;
+		}
+		if (log.total_tokens !== null && log.total_tokens !== undefined) {
+			totalTokens += log.total_tokens;
+		} else {
+			totalTokens += (log.prompt_tokens ?? 0) + (log.completion_tokens ?? 0);
+		}
+	}
+	return {
+		total,
+		success,
+		failed,
+		errorRate: total > 0 ? (failed / total) * 100 : 0,
+		avgLatencyMs: latencyCount > 0 ? latencySum / latencyCount : null,
+		totalTokens,
+	};
 };
