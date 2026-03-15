@@ -3,7 +3,6 @@ import type { AppEnv } from "../env";
 import { type TokenRecord, tokenAuth } from "../middleware/tokenAuth";
 import {
 	type CallTokenItem,
-	selectCallToken,
 } from "../services/call-token-selector";
 import { listCallTokens } from "../services/channel-call-token-repo";
 import {
@@ -17,8 +16,15 @@ import {
 	createWeightedOrder,
 	extractModels,
 } from "../services/channels";
-import { listVerifiedModelsByChannel } from "../services/channel-model-capabilities";
-import { getModelCapabilityTtlHours } from "../services/settings";
+import {
+	listCoolingDownChannelsForModel,
+	listVerifiedModelsByChannel,
+	recordChannelModelError,
+	upsertChannelModelCapabilities,
+} from "../services/channel-model-capabilities";
+import {
+	getModelFailureCooldownMinutes,
+} from "../services/settings";
 import {
 	applyGeminiModelToPath,
 	buildUpstreamChatRequest,
@@ -55,6 +61,83 @@ type ExecutionContextLike = {
 	waitUntil: (promise: Promise<unknown>) => void;
 };
 
+function scheduleDbWrite(
+	c: { executionCtx?: ExecutionContextLike },
+	task: Promise<void>,
+): void {
+	if (c.executionCtx?.waitUntil) {
+		c.executionCtx.waitUntil(task);
+	} else {
+		task.catch(() => undefined);
+	}
+}
+
+type ErrorDetails = {
+	upstreamStatus: number | null;
+	errorCode: string | null;
+	errorMessage: string | null;
+};
+
+const FAILURE_COUNT_THRESHOLD = 2;
+
+function normalizeMessage(value: string | null): string | null {
+	if (!value) {
+		return null;
+	}
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return null;
+	}
+	return trimmed;
+}
+
+async function extractErrorDetails(
+	response: Response,
+): Promise<{ errorCode: string | null; errorMessage: string | null }> {
+	const contentType = response.headers.get("content-type") ?? "";
+	if (contentType.includes("application/json")) {
+		const payload = await response.clone().json().catch(() => null);
+		if (payload && typeof payload === "object") {
+			const raw = payload as Record<string, unknown>;
+			const error = (raw.error ?? raw) as Record<string, unknown>;
+			const errorCode =
+				typeof error.code === "string"
+					? error.code
+					: typeof error.type === "string"
+						? error.type
+						: null;
+			const errorMessage =
+				typeof error.message === "string"
+					? error.message
+					: typeof raw.message === "string"
+						? raw.message
+						: null;
+			return {
+				errorCode,
+				errorMessage: normalizeMessage(errorMessage),
+			};
+		}
+	}
+	const text = await response.clone().text().catch(() => "");
+	return { errorCode: null, errorMessage: normalizeMessage(text) };
+}
+
+export function shouldCooldown(
+	upstreamStatus: number | null,
+	errorCode: string | null,
+): boolean {
+	if (errorCode === "timeout" || errorCode === "exception") {
+		return true;
+	}
+	if (upstreamStatus === 429 || upstreamStatus === 408) {
+		return true;
+	}
+	if (upstreamStatus !== null && upstreamStatus >= 500) {
+		return true;
+	}
+	return false;
+}
+
 function channelSupportsModel(
 	channel: ChannelRecord,
 	model: string | null,
@@ -64,35 +147,49 @@ function channelSupportsModel(
 		return true;
 	}
 	const verified = verifiedModelsByChannel.get(channel.id);
+	const declaredModels = extractModels(channel).map((entry) => entry.id);
 	const metadata = parseChannelMetadata(channel.metadata_json);
 	const mapped = resolveMappedModel(metadata.model_mapping, model);
-	if (verified && verified.size > 0) {
-		if (mapped && verified.has(mapped)) {
-			return true;
+	const hasExplicitMapping = hasExplicitModelMapping(metadata, model);
+	const declaredAllows =
+		declaredModels.length > 0
+			? (mapped ? declaredModels.includes(mapped) : false) ||
+				declaredModels.includes(model)
+			: null;
+	const verifiedAllows =
+		verified && verified.size > 0
+			? (mapped ? verified.has(mapped) : false) || verified.has(model)
+			: null;
+	if (hasExplicitMapping) {
+		if (verified && verified.size > 0) {
+			return Boolean(verifiedAllows);
 		}
-		return verified.has(model);
-	}
-	const declaredModels = extractModels(channel).map((entry) => entry.id);
-	if (mapped && declaredModels.includes(mapped)) {
+		if (declaredModels.length > 0) {
+			return Boolean(declaredAllows);
+		}
 		return true;
 	}
-	return declaredModels.includes(model);
+	if (declaredModels.length > 0 && !declaredAllows) {
+		return false;
+	}
+	if (verified && verified.size > 0) {
+		return Boolean(verifiedAllows);
+	}
+	if (declaredModels.length > 0) {
+		return true;
+	}
+	return false;
 }
 
 export function selectCandidateChannels(
 	allowedChannels: ChannelRecord[],
 	downstreamModel: string | null,
-	verifiedModelsByChannel: Map<string, Set<string>>,
+	verifiedModelsByChannel: Map<string, Set<string>> = new Map(),
 ): ChannelRecord[] {
 	const modelChannels = allowedChannels.filter((channel) =>
 		channelSupportsModel(channel, downstreamModel, verifiedModelsByChannel),
 	);
-	if (modelChannels.length > 0) {
-		return modelChannels;
-	}
-	// Fallback to all allowed channels. Downstream protocol should not restrict
-	// upstream channel selection.
-	return allowedChannels;
+	return modelChannels;
 }
 
 function hasExplicitModelMapping(
@@ -112,7 +209,7 @@ export function resolveUpstreamModelForChannel(
 	channel: ChannelRecord,
 	metadata: ChannelMetadata,
 	downstreamModel: string | null,
-	verifiedModelsByChannel: Map<string, Set<string>>,
+	verifiedModelsByChannel: Map<string, Set<string>> = new Map(),
 ): { model: string | null; autoMapped: boolean } {
 	const mapped = resolveMappedModel(metadata.model_mapping, downstreamModel);
 	if (!downstreamModel || hasExplicitModelMapping(metadata, downstreamModel)) {
@@ -146,6 +243,36 @@ function filterAllowedChannels(
 	const allowedSet = new Set(allowed);
 	return channels.filter((channel) => allowedSet.has(channel.id));
 }
+
+const normalizeTokenModels = (raw?: string | null): string[] | null => {
+	const parsed = safeJsonParse<string[] | null>(raw ?? null, null);
+	if (!parsed || !Array.isArray(parsed) || parsed.length === 0) {
+		return null;
+	}
+	return parsed.map((item) => String(item));
+};
+
+const selectTokenForModel = (
+	tokens: CallTokenItem[],
+	model: string | null,
+): { token: CallTokenItem | null; hasModelList: boolean } => {
+	if (tokens.length === 0) {
+		return { token: null, hasModelList: false };
+	}
+	if (!model) {
+		return { token: tokens[0], hasModelList: false };
+	}
+	const tokensWithModels = tokens.map((token) => ({
+		token,
+		models: normalizeTokenModels(token.models_json),
+	}));
+	const hasModelList = tokensWithModels.some((entry) => entry.models);
+	if (!hasModelList) {
+		return { token: tokens[0], hasModelList: false };
+	}
+	const match = tokensWithModels.find((entry) => entry.models?.includes(model));
+	return { token: match?.token ?? null, hasModelList };
+};
 
 function resolveChannelBaseUrl(channel: ChannelRecord): string {
 	return normalizeBaseUrl(channel.base_url);
@@ -225,6 +352,7 @@ async function fetchWithTimeout(
  */
 proxy.all("/*", tokenAuth, async (c) => {
 	const tokenRecord = c.get("tokenRecord") as TokenRecord;
+	const requestStart = Date.now();
 	let requestText = await c.req.text();
 	const parsedBody = requestText
 		? safeJsonParse<Record<string, unknown> | null>(requestText, null)
@@ -289,6 +417,33 @@ proxy.all("/*", tokenAuth, async (c) => {
 		);
 	}
 
+	const recordEarlyUsage = (options: {
+		status: number;
+		code: string;
+		message?: string | null;
+	}) => {
+		const latencyMs = Date.now() - requestStart;
+		const errorMessage = options.message ?? options.code;
+		scheduleDbWrite(
+			c,
+			recordUsage(c.env.DB, {
+				tokenId: tokenRecord.id,
+				channelId: null,
+				model: downstreamModel,
+				requestPath: c.req.path,
+				totalTokens: 0,
+				latencyMs,
+				firstTokenLatencyMs: isStream ? null : latencyMs,
+				stream: isStream,
+				reasoningEffort,
+				status: "error",
+				upstreamStatus: options.status,
+				errorCode: options.code,
+				errorMessage,
+			}),
+		);
+	};
+
 	const channelResult = await c.env.DB.prepare(
 		"SELECT * FROM channels WHERE status = ?",
 	)
@@ -305,24 +460,57 @@ proxy.all("/*", tokenAuth, async (c) => {
 			channel_id: row.channel_id,
 			name: row.name,
 			api_key: row.api_key,
+			models_json: row.models_json ?? null,
 		};
 		const list = callTokenMap.get(row.channel_id) ?? [];
 		list.push(entry);
 		callTokenMap.set(row.channel_id, list);
 	}
 	const allowedChannels = filterAllowedChannels(activeChannels, tokenRecord);
-	const ttlHours = await getModelCapabilityTtlHours(c.env.DB);
-	const ttlSeconds = Math.max(1, Math.floor(ttlHours)) * 60 * 60;
 	const verifiedModelsByChannel = await listVerifiedModelsByChannel(
 		c.env.DB,
 		allowedChannels.map((channel) => channel.id),
-		ttlSeconds,
 	);
-	const candidates = selectCandidateChannels(
+	let candidates = selectCandidateChannels(
 		allowedChannels,
 		downstreamModel,
 		verifiedModelsByChannel,
 	);
+	const cooldownMinutes = await getModelFailureCooldownMinutes(c.env.DB);
+	const cooldownSeconds = Math.max(0, Math.floor(cooldownMinutes)) * 60;
+	if (downstreamModel && cooldownSeconds > 0 && candidates.length > 0) {
+		const coolingChannels = await listCoolingDownChannelsForModel(
+			c.env.DB,
+			candidates.map((channel) => channel.id),
+			downstreamModel,
+			cooldownSeconds,
+			FAILURE_COUNT_THRESHOLD,
+		);
+		if (coolingChannels.size > 0) {
+			candidates = candidates.filter(
+				(channel) => !coolingChannels.has(channel.id),
+			);
+			if (candidates.length === 0) {
+				console.warn("[proxy:model_cooldown]", {
+					path: c.req.path,
+					model: downstreamModel,
+					cooldown_minutes: cooldownMinutes,
+					blocked_channels: coolingChannels.size,
+				});
+				recordEarlyUsage({
+					status: 503,
+					code: "upstream_cooldown",
+					message: "upstream_cooldown",
+				});
+				return jsonError(
+					c,
+					503,
+					"upstream_cooldown",
+					"upstream_cooldown",
+				);
+			}
+		}
+	}
 
 	if (candidates.length === 0 && allowedChannels.length > 0) {
 		console.warn("[proxy:no_compatible_channels]", {
@@ -333,6 +521,11 @@ proxy.all("/*", tokenAuth, async (c) => {
 		});
 	}
 	if (candidates.length === 0) {
+		recordEarlyUsage({
+			status: 503,
+			code: "no_available_channels",
+			message: "no_available_channels",
+		});
 		return jsonError(c, 503, "no_available_channels", "no_available_channels");
 	}
 	const targetPath = c.req.path;
@@ -345,10 +538,11 @@ proxy.all("/*", tokenAuth, async (c) => {
 		1000,
 		Number(c.env.PROXY_UPSTREAM_TIMEOUT_MS ?? "30000"),
 	);
+	const nowSeconds = Math.floor(Date.now() / 1000);
 	let lastResponse: Response | null = null;
 	let lastChannel: ChannelRecord | null = null;
 	let lastRequestPath = targetPath;
-	const start = Date.now();
+	let lastErrorDetails: ErrorDetails | null = null;
 	let selectedChannel: ChannelRecord | null = null;
 	let selectedUpstreamProvider: ProviderType | null = null;
 	let selectedUpstreamModel: string | null = null;
@@ -363,6 +557,7 @@ proxy.all("/*", tokenAuth, async (c) => {
 			verifiedModelsByChannel,
 		);
 		const upstreamModel = resolvedModel.model;
+		const recordModel = upstreamModel ?? downstreamModel;
 		if (
 			upstreamProvider === "gemini" &&
 			!upstreamModel &&
@@ -372,8 +567,11 @@ proxy.all("/*", tokenAuth, async (c) => {
 		}
 		const baseUrl = resolveChannelBaseUrl(channel);
 		const tokens = callTokenMap.get(channel.id) ?? [];
-		const selectedToken = tokens.length > 0 ? selectCallToken(tokens) : null;
-		const apiKey = selectedToken?.api_key ?? channel.api_key;
+		const selection = selectTokenForModel(tokens, recordModel);
+		if (!selection.token && selection.hasModelList && recordModel) {
+			continue;
+		}
+		const apiKey = selection.token?.api_key ?? channel.api_key;
 		const headers = buildUpstreamHeaders(
 			new Headers(c.req.header()),
 			upstreamProvider,
@@ -484,6 +682,11 @@ proxy.all("/*", tokenAuth, async (c) => {
 			} | null = null;
 			if (endpointType === "chat" || endpointType === "responses") {
 				if (!normalizedChat) {
+					recordEarlyUsage({
+						status: 400,
+						code: "invalid_body",
+						message: "invalid_body",
+					});
 					return jsonError(c, 400, "invalid_body", "invalid_body");
 				}
 				const request = buildUpstreamChatRequest(
@@ -503,6 +706,11 @@ proxy.all("/*", tokenAuth, async (c) => {
 				};
 			} else if (endpointType === "embeddings") {
 				if (!normalizedEmbedding) {
+					recordEarlyUsage({
+						status: 400,
+						code: "invalid_body",
+						message: "invalid_body",
+					});
 					return jsonError(c, 400, "invalid_body", "invalid_body");
 				}
 				const request = buildUpstreamEmbeddingRequest(
@@ -520,6 +728,11 @@ proxy.all("/*", tokenAuth, async (c) => {
 				};
 			} else if (endpointType === "images") {
 				if (!normalizedImage) {
+					recordEarlyUsage({
+						status: 400,
+						code: "invalid_body",
+						message: "invalid_body",
+					});
 					return jsonError(c, 400, "invalid_body", "invalid_body");
 				}
 				const request = buildUpstreamImageRequest(
@@ -594,7 +807,58 @@ proxy.all("/*", tokenAuth, async (c) => {
 				selectedChannel = channel;
 				selectedUpstreamProvider = upstreamProvider;
 				selectedUpstreamModel = upstreamModel;
+				lastErrorDetails = null;
+				if (recordModel) {
+					scheduleDbWrite(
+						c,
+						upsertChannelModelCapabilities(
+							c.env.DB,
+							channel.id,
+							[recordModel],
+							nowSeconds,
+						),
+					);
+				}
 				break;
+			}
+			const errorInfo = await extractErrorDetails(response);
+			lastErrorDetails = {
+				upstreamStatus: response.status,
+				errorCode: errorInfo.errorCode,
+				errorMessage: errorInfo.errorMessage,
+			};
+			const cooldownEligible = shouldCooldown(
+				response.status,
+				errorInfo.errorCode,
+			);
+			if (recordModel && cooldownSeconds > 0 && cooldownEligible) {
+				scheduleDbWrite(
+					c,
+					recordChannelModelError(
+						c.env.DB,
+						channel.id,
+						recordModel,
+						String(response.status),
+						nowSeconds,
+					),
+				);
+			}
+			if (
+				downstreamModel &&
+				downstreamModel !== recordModel &&
+				cooldownSeconds > 0 &&
+				cooldownEligible
+			) {
+				scheduleDbWrite(
+					c,
+					recordChannelModelError(
+						c.env.DB,
+						channel.id,
+						downstreamModel,
+						String(response.status),
+						nowSeconds,
+					),
+				);
 			}
 		} catch (error) {
 			const isTimeout =
@@ -610,11 +874,51 @@ proxy.all("/*", tokenAuth, async (c) => {
 				reason: isTimeout ? "timeout" : "exception",
 				error: error instanceof Error ? error.message : String(error),
 			});
+			lastErrorDetails = {
+				upstreamStatus: null,
+				errorCode: isTimeout ? "timeout" : "exception",
+				errorMessage: normalizeMessage(
+					error instanceof Error ? error.message : String(error),
+				),
+			};
+			const cooldownEligible = shouldCooldown(
+				null,
+				isTimeout ? "timeout" : "exception",
+			);
+			if (recordModel && cooldownSeconds > 0 && cooldownEligible) {
+				scheduleDbWrite(
+					c,
+					recordChannelModelError(
+						c.env.DB,
+						channel.id,
+						recordModel,
+						isTimeout ? "timeout" : "exception",
+						nowSeconds,
+					),
+				);
+			}
+			if (
+				downstreamModel &&
+				downstreamModel !== recordModel &&
+				cooldownSeconds > 0 &&
+				cooldownEligible
+			) {
+				scheduleDbWrite(
+					c,
+					recordChannelModelError(
+						c.env.DB,
+						channel.id,
+						downstreamModel,
+						isTimeout ? "timeout" : "exception",
+						nowSeconds,
+					),
+				);
+			}
 			lastResponse = null;
 		}
 	}
 
-	const latencyMs = Date.now() - start;
+	const latencyMs = Date.now() - requestStart;
 	if (!selectedChannel && lastResponse && !lastResponse.ok) {
 		console.warn("[proxy:upstream_exhausted]", {
 			path: targetPath,
@@ -642,12 +946,23 @@ proxy.all("/*", tokenAuth, async (c) => {
 			stream: isStream,
 			reasoningEffort,
 			status: "error",
+			upstreamStatus: lastErrorDetails?.upstreamStatus ?? null,
+			errorCode: lastErrorDetails?.errorCode ?? "upstream_unavailable",
+			errorMessage: lastErrorDetails?.errorMessage ?? "upstream_unavailable",
 		});
 		return jsonError(c, 502, "upstream_unavailable", "upstream_unavailable");
 	}
 
 	const channelForUsage = selectedChannel ?? lastChannel;
 	if (channelForUsage && lastResponse) {
+		const errorDetails =
+			lastResponse.ok || selectedChannel
+				? null
+				: lastErrorDetails ?? {
+						upstreamStatus: lastResponse.status,
+						errorCode: null,
+						errorMessage: null,
+					};
 		const record = async (
 			usage: NormalizedUsage | null,
 			firstTokenLatencyMs?: number | null,
@@ -673,6 +988,13 @@ proxy.all("/*", tokenAuth, async (c) => {
 				stream: isStream,
 				reasoningEffort,
 				status: lastResponse.ok ? "ok" : "error",
+				upstreamStatus: lastResponse.ok
+					? lastResponse.status
+					: errorDetails?.upstreamStatus ?? lastResponse.status,
+				errorCode: lastResponse.ok ? null : errorDetails?.errorCode ?? null,
+				errorMessage: lastResponse.ok
+					? null
+					: errorDetails?.errorMessage ?? null,
 			});
 		};
 		const headerUsage = parseUsageFromHeaders(lastResponse.headers);

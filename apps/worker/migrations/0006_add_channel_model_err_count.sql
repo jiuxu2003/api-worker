@@ -1,0 +1,1 @@
+ALTER TABLE channel_model_capabilities ADD COLUMN last_err_count INTEGER NOT NULL DEFAULT 0;

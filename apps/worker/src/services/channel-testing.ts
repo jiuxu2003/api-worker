@@ -144,7 +144,13 @@ export async function updateChannelTestResult(
 	},
 ): Promise<void> {
 	const now = Math.floor(Date.now() / 1000);
-	const status = result.ok ? "active" : "error";
+	const current = await db
+		.prepare("SELECT status FROM channels WHERE id = ?")
+		.bind(id)
+		.first<{ status: string }>();
+	const currentStatus = current?.status ?? "active";
+	const status =
+		currentStatus === "disabled" ? "disabled" : result.ok ? "active" : "error";
 	const modelsJson =
 		result.modelsJson ??
 		(result.models ? modelsToJson(result.models) : undefined);

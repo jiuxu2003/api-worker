@@ -3,6 +3,7 @@ import type { SettingsForm } from "../core/types";
 type SettingsViewProps = {
 	settingsForm: SettingsForm;
 	adminPasswordSet: boolean;
+	isSaving: boolean;
 	onSubmit: (event: Event) => void;
 	onFormChange: (patch: Partial<SettingsForm>) => void;
 };
@@ -19,10 +20,11 @@ type SettingsViewProps = {
 export const SettingsView = ({
 	settingsForm,
 	adminPasswordSet,
+	isSaving,
 	onSubmit,
 	onFormChange,
 }: SettingsViewProps) => (
-	<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
+	<div class="animate-fade-up rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
 		<div class="mb-4 flex items-center justify-between">
 			<h3 class="mb-0 font-['Space_Grotesk'] text-lg tracking-tight text-stone-900">
 				系统设置
@@ -94,6 +96,31 @@ export const SettingsView = ({
 					}}
 				/>
 			</div>
+			<div>
+				<label
+					class="mb-1.5 block text-xs uppercase tracking-widest text-stone-500"
+					for="failure-cooldown"
+				>
+					失败冷却（分钟）
+				</label>
+				<input
+					class="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
+					id="failure-cooldown"
+					name="model_failure_cooldown_minutes"
+					type="number"
+					min="1"
+					value={settingsForm.model_failure_cooldown_minutes}
+					onInput={(event) => {
+						const target = event.currentTarget as HTMLInputElement | null;
+						onFormChange({
+							model_failure_cooldown_minutes: target?.value ?? "",
+						});
+					}}
+				/>
+				<p class="mt-1 text-xs text-stone-500">
+					同一模型失败后在该时间内跳过对应渠道。
+				</p>
+			</div>
 			<div class="lg:col-span-2">
 				<label
 					class="mb-1.5 block text-xs uppercase tracking-widest text-stone-500"
@@ -127,8 +154,9 @@ export const SettingsView = ({
 				<button
 					class="h-11 rounded-lg bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
 					type="submit"
+					disabled={isSaving}
 				>
-					保存设置
+					{isSaving ? "保存中..." : "保存设置"}
 				</button>
 			</div>
 		</form>

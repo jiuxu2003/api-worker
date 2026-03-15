@@ -1,3 +1,4 @@
+import { useEffect, useState } from "hono/jsx/dom";
 import {
 	getSiteCheckinLabel,
 	getSiteTypeLabel,
@@ -24,13 +25,14 @@ type SitesViewProps = {
 	lastRun: string | null;
 	siteSearch: string;
 	siteSort: SiteSortState;
+	isActionPending: (key: string) => boolean;
 	onCreate: () => void;
 	onCloseModal: () => void;
 	onEdit: (site: Site) => void;
 	onSubmit: (event: Event) => void;
 	onTest: (id: string) => void;
 	onToggle: (id: string, status: string) => void;
-	onDelete: (id: string) => void;
+	onDelete: (site: Site) => void;
 	onPageChange: (next: number) => void;
 	onPageSizeChange: (next: number) => void;
 	onSearchChange: (next: string) => void;
@@ -64,6 +66,7 @@ export const SitesView = ({
 	lastRun,
 	siteSearch,
 	siteSort,
+	isActionPending,
 	onCreate,
 	onCloseModal,
 	onEdit,
@@ -82,6 +85,10 @@ export const SitesView = ({
 	const isEditing = Boolean(editingSite);
 	const pageItems = buildPageItems(sitePage, siteTotalPages);
 	const today = getBeijingDateString();
+	const isSubmitting = isActionPending("site:submit");
+	const isTestingAll = isActionPending("site:testAll");
+	const isCheckinAll = isActionPending("site:checkinAll");
+	const [localSearch, setLocalSearch] = useState(siteSearch);
 	const isOfficialType =
 		siteForm.site_type === "openai" ||
 		siteForm.site_type === "anthropic" ||
@@ -130,8 +137,32 @@ export const SitesView = ({
 		}
 		return siteSort.direction === "asc" ? "▲" : "▼";
 	};
+	useEffect(() => {
+		if (!isSiteModalOpen) {
+			return;
+		}
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				event.preventDefault();
+				onCloseModal();
+			}
+		};
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [isSiteModalOpen, onCloseModal]);
+	useEffect(() => {
+		setLocalSearch(siteSearch);
+	}, [siteSearch]);
+	useEffect(() => {
+		const timer = window.setTimeout(() => {
+			if (localSearch !== siteSearch) {
+				onSearchChange(localSearch);
+			}
+		}, 300);
+		return () => window.clearTimeout(timer);
+	}, [localSearch, onSearchChange, siteSearch]);
 	return (
-		<div class="space-y-5">
+		<div class="animate-fade-up space-y-5">
 			<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
 				<div class="flex flex-wrap items-center justify-between gap-3">
 					<div>
@@ -152,18 +183,20 @@ export const SitesView = ({
 							</div>
 						)}
 						<button
-							class="h-9 rounded-full border border-stone-200 bg-stone-100 px-4 text-xs font-semibold text-stone-700 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+							class="h-9 rounded-full border border-stone-200 bg-stone-100 px-4 text-xs font-semibold text-stone-700 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
 							type="button"
+							disabled={isCheckinAll}
 							onClick={onRunAll}
 						>
-							一键签到
+							{isCheckinAll ? "签到中..." : "一键签到"}
 						</button>
 						<button
-							class="h-9 rounded-full border border-stone-200 bg-stone-100 px-4 text-xs font-semibold text-stone-700 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+							class="h-9 rounded-full border border-stone-200 bg-stone-100 px-4 text-xs font-semibold text-stone-700 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
 							type="button"
+							disabled={isTestingAll}
 							onClick={onTestAll}
 						>
-							一键测试
+							{isTestingAll ? "测试中..." : "一键测试"}
 						</button>
 						<button
 							class="h-9 rounded-full bg-stone-900 px-4 text-xs font-semibold text-white transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
@@ -180,9 +213,11 @@ export const SitesView = ({
 						<input
 							class="w-full bg-transparent text-xs text-stone-700 placeholder:text-stone-400 focus:outline-none"
 							placeholder="站点名称或 URL"
-							value={siteSearch}
+							value={localSearch}
 							onInput={(event) =>
-								onSearchChange((event.currentTarget as HTMLInputElement).value)
+								setLocalSearch(
+									(event.currentTarget as HTMLInputElement).value,
+								)
 							}
 						/>
 					</label>
@@ -206,8 +241,15 @@ export const SitesView = ({
 				<div class="mt-4">
 					<div class="space-y-3 md:hidden">
 						{pagedSites.length === 0 ? (
-							<div class="rounded-xl border border-stone-200 bg-white px-4 py-10 text-center text-sm text-stone-500">
-								暂无站点，请先创建。
+							<div class="rounded-xl border border-dashed border-stone-200 bg-stone-50 px-4 py-10 text-center text-sm text-stone-500">
+								<p>暂无站点，请先创建。</p>
+								<button
+									class="mt-4 h-9 rounded-full bg-stone-900 px-4 text-xs font-semibold text-white transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+									type="button"
+									onClick={onCreate}
+								>
+									新增站点
+								</button>
 							</div>
 						) : (
 							pagedSites.map((site) => {
@@ -218,6 +260,13 @@ export const SitesView = ({
 									site.system_token && site.system_userid,
 								);
 								const callTokenCount = site.call_tokens?.length ?? 0;
+								const testPending = isActionPending(`site:test:${site.id}`);
+								const togglePending = isActionPending(
+									`site:toggle:${site.id}`,
+								);
+								const deletePending = isActionPending(
+									`site:delete:${site.id}`,
+								);
 								return (
 									<div
 										class={`rounded-xl border p-4 shadow-sm ${
@@ -297,16 +346,22 @@ export const SitesView = ({
 											<button
 												class="h-9 w-full rounded-full border border-stone-200 bg-stone-100 px-3 text-xs font-semibold text-stone-900 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
 												type="button"
+												disabled={testPending}
 												onClick={() => onTest(site.id)}
 											>
-												连通测试
+												{testPending ? "测试中..." : "连通测试"}
 											</button>
 											<button
 												class="h-9 w-full rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
 												type="button"
+												disabled={togglePending}
 												onClick={() => onToggle(site.id, site.status)}
 											>
-												{isActive ? "禁用" : "启用"}
+												{togglePending
+													? "处理中..."
+													: isActive
+														? "禁用"
+														: "启用"}
 											</button>
 											<button
 												class="h-9 w-full rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
@@ -318,9 +373,10 @@ export const SitesView = ({
 											<button
 												class="h-9 w-full rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-500 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
 												type="button"
-												onClick={() => onDelete(site.id)}
+												disabled={deletePending}
+												onClick={() => onDelete(site)}
 											>
-												删除
+												{deletePending ? "删除中..." : "删除"}
 											</button>
 										</div>
 									</div>
@@ -346,13 +402,27 @@ export const SitesView = ({
 						</div>
 						{pagedSites.length === 0 ? (
 							<div class="px-4 py-10 text-center text-sm text-stone-500">
-								暂无站点，请先创建。
+								<p>暂无站点，请先创建。</p>
+								<button
+									class="mt-4 h-9 rounded-full bg-stone-900 px-4 text-xs font-semibold text-white transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+									type="button"
+									onClick={onCreate}
+								>
+									新增站点
+								</button>
 							</div>
 						) : (
 							<div class="divide-y divide-stone-100">
 								{pagedSites.map((site) => {
 									const isActive = site.status === "active";
 									const callTokenCount = site.call_tokens?.length ?? 0;
+									const testPending = isActionPending(`site:test:${site.id}`);
+									const togglePending = isActionPending(
+										`site:toggle:${site.id}`,
+									);
+									const deletePending = isActionPending(
+										`site:delete:${site.id}`,
+									);
 									return (
 										<div
 											class={`grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.5fr)_minmax(0,0.6fr)_minmax(0,0.6fr)_minmax(0,0.8fr)_minmax(0,1.4fr)] items-center gap-3 px-4 py-4 text-sm ${
@@ -407,16 +477,22 @@ export const SitesView = ({
 												<button
 													class="h-9 rounded-full border border-stone-200 bg-stone-100 px-3 text-xs font-semibold text-stone-900 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
 													type="button"
+													disabled={testPending}
 													onClick={() => onTest(site.id)}
 												>
-													连通测试
+													{testPending ? "测试中..." : "连通测试"}
 												</button>
 												<button
 													class="h-9 rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
 													type="button"
+													disabled={togglePending}
 													onClick={() => onToggle(site.id, site.status)}
 												>
-													{isActive ? "禁用" : "启用"}
+													{togglePending
+														? "处理中..."
+														: isActive
+															? "禁用"
+															: "启用"}
 												</button>
 												<button
 													class="h-9 rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
@@ -428,9 +504,10 @@ export const SitesView = ({
 												<button
 													class="h-9 rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-500 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
 													type="button"
-													onClick={() => onDelete(site.id)}
+													disabled={deletePending}
+													onClick={() => onDelete(site)}
 												>
-													删除
+													{deletePending ? "删除中..." : "删除"}
 												</button>
 											</div>
 										</div>
@@ -510,11 +587,23 @@ export const SitesView = ({
 				)}
 			</div>
 			{isSiteModalOpen && (
-				<div class="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/40 px-4 py-8">
-					<div class="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl">
+				<div
+					class="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/40 px-4 py-8"
+					onClick={onCloseModal}
+				>
+					<div
+						aria-labelledby="site-modal-title"
+						aria-modal="true"
+						class="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl"
+						role="dialog"
+						onClick={(event) => event.stopPropagation()}
+					>
 						<div class="flex flex-wrap items-start justify-between gap-3">
 							<div>
-								<h3 class="mb-1 font-['Space_Grotesk'] text-lg tracking-tight text-stone-900">
+								<h3
+									class="mb-1 font-['Space_Grotesk'] text-lg tracking-tight text-stone-900"
+									id="site-modal-title"
+								>
 									{isEditing ? "编辑站点" : "新增站点"}
 								</h3>
 								<p class="text-xs text-stone-500">
@@ -549,6 +638,7 @@ export const SitesView = ({
 										name="name"
 										value={siteForm.name}
 										required
+										autoFocus
 										onInput={(event) =>
 											onFormChange({
 												name: (event.currentTarget as HTMLInputElement).value,
@@ -835,8 +925,13 @@ export const SitesView = ({
 								<button
 									class="h-10 rounded-full bg-stone-900 px-5 text-xs font-semibold text-white transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
 									type="submit"
+									disabled={isSubmitting}
 								>
-									{isEditing ? "保存修改" : "创建站点"}
+									{isSubmitting
+										? "保存中..."
+										: isEditing
+											? "保存修改"
+											: "创建站点"}
 								</button>
 							</div>
 						</form>

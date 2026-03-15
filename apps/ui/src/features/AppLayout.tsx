@@ -1,11 +1,12 @@
-import type { TabId, TabItem } from "../core/types";
+import type { NoticeMessage, TabId, TabItem } from "../core/types";
 
 type AppLayoutProps = {
 	tabs: TabItem[];
 	activeTab: TabId;
 	activeLabel: string;
 	token: string | null;
-	notice: string;
+	notice: NoticeMessage | null;
+	onDismissNotice: () => void;
 	onTabChange: (tabId: TabId) => void;
 	onLogout: () => void;
 	children?: unknown;
@@ -26,10 +27,23 @@ export const AppLayout = ({
 	activeLabel,
 	token,
 	notice,
+	onDismissNotice,
 	onTabChange,
 	onLogout,
 	children,
 }: AppLayoutProps) => {
+	const noticeToneStyles: Record<NoticeMessage["tone"], string> = {
+		success: "border-emerald-200 bg-emerald-50 text-emerald-800",
+		warning: "border-amber-200 bg-amber-50 text-amber-800",
+		error: "border-rose-200 bg-rose-50 text-rose-700",
+		info: "border-sky-200 bg-sky-50 text-sky-800",
+	};
+	const noticeToneLabel: Record<NoticeMessage["tone"], string> = {
+		success: "成功",
+		warning: "提示",
+		error: "错误",
+		info: "信息",
+	};
 	const closeMobileNav = () => {
 		const toggle = document.querySelector<HTMLInputElement>("#app-nav-toggle");
 		if (toggle) {
@@ -153,8 +167,26 @@ export const AppLayout = ({
 					</div>
 				</div>
 				{notice && (
-					<div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-						{notice}
+					<div
+						class={`animate-fade-up mt-4 rounded-xl border px-4 py-3 text-sm ${noticeToneStyles[notice.tone]}`}
+					>
+						<div class="flex items-start justify-between gap-3">
+							<div>
+								<span class="text-[10px] font-semibold uppercase tracking-widest text-stone-500">
+									{noticeToneLabel[notice.tone]}
+								</span>
+								<div class="mt-1 text-sm font-semibold text-stone-900">
+									{notice.message}
+								</div>
+							</div>
+							<button
+								class="h-8 rounded-full border border-stone-200 bg-white px-3 text-[11px] font-semibold text-stone-500 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+								type="button"
+								onClick={onDismissNotice}
+							>
+								关闭
+							</button>
+						</div>
 					</div>
 				)}
 				{children}

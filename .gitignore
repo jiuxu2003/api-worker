@@ -7,5 +7,5 @@ apps/ui/dist/
 apps/worker/.wrangler/
 tests/
 
-helloagents/plan
-helloagents/archive
+.helloagents/plan
+.helloagents/archive

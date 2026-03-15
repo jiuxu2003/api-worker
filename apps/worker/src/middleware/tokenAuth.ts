@@ -12,6 +12,7 @@ export type TokenRecord = {
 	quota_used: number;
 	status: string;
 	allowed_channels: string | null;
+	expires_at?: string | null;
 };
 
 /**
@@ -25,13 +26,20 @@ export const tokenAuth = createMiddleware<AppEnv>(async (c, next) => {
 
 	const tokenHash = await sha256Hex(token);
 	const record = await c.env.DB.prepare(
-		"SELECT id, name, quota_total, quota_used, status, allowed_channels FROM tokens WHERE key_hash = ?",
+		"SELECT id, name, quota_total, quota_used, status, allowed_channels, expires_at FROM tokens WHERE key_hash = ?",
 	)
 		.bind(tokenHash)
 		.first<TokenRecord>();
 
 	if (!record) {
 		return jsonError(c, 401, "invalid_token", "invalid_token");
+	}
+
+	if (record.expires_at) {
+		const parsed = Date.parse(record.expires_at);
+		if (!Number.isNaN(parsed) && Date.now() >= parsed) {
+			return jsonError(c, 403, "token_expired", "token_expired");
+		}
 	}
 
 	if (record.status !== "active") {

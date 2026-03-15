@@ -79,3 +79,18 @@ export async function replaceCallTokensForChannel(
 		await insertCallToken(db, token);
 	}
 }
+
+export async function updateCallTokenModels(
+	db: D1Database,
+	tokenId: string,
+	models: string[],
+	updatedAt: string,
+): Promise<void> {
+	const modelsJson = models.length > 0 ? JSON.stringify(models) : null;
+	await db
+		.prepare(
+			"UPDATE channel_call_tokens SET models_json = ?, updated_at = ? WHERE id = ?",
+		)
+		.bind(modelsJson, updatedAt, tokenId)
+		.run();
+}

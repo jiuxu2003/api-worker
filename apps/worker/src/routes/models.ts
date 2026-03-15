@@ -1,8 +1,7 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
-import { listVerifiedModelEntries } from "../services/channel-model-capabilities";
+import { listModelEntriesWithFallback } from "../services/channel-model-capabilities";
 import { listActiveChannels } from "../services/channel-repo";
-import { getModelCapabilityTtlHours } from "../services/settings";
 
 const models = new Hono<AppEnv>();
 
@@ -11,12 +10,13 @@ const models = new Hono<AppEnv>();
  */
 models.get("/", async (c) => {
 	const channels = await listActiveChannels(c.env.DB);
-	const ttlHours = await getModelCapabilityTtlHours(c.env.DB);
-	const ttlSeconds = Math.max(1, Math.floor(ttlHours)) * 60 * 60;
-	const entries = await listVerifiedModelEntries(
+	const entries = await listModelEntriesWithFallback(
 		c.env.DB,
-		channels.map((channel) => ({ id: channel.id, name: channel.name })),
-		ttlSeconds,
+		channels.map((channel) => ({
+			id: channel.id,
+			name: channel.name,
+			models_json: channel.models_json,
+		})),
 	);
 
 	const map = new Map<

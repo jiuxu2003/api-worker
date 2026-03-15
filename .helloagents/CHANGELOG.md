@@ -20,6 +20,18 @@
 - **[worker/models]**: 引入通道模型能力表并基于“模型广场测试结果+可配置TTL（默认2小时）”进行模型发布与路由匹配
   - 类型: 微调（无方案包）
   - 文件: apps/worker/migrations/0004_add_channel_model_capabilities.sql, apps/worker/src/services/channel-model-capabilities.ts, apps/worker/src/services/channel-testing.ts, apps/worker/src/services/settings.ts, apps/worker/src/routes/settings.ts, apps/worker/src/routes/models.ts, apps/worker/src/routes/newapiUsers.ts, apps/worker/src/routes/proxy.ts, tests/worker/channel-model-capabilities.test.ts, tests/worker/newapi.test.ts, helloagents/modules/settings.md, helloagents/modules/models.md, helloagents/modules/proxy.md
+- **[worker/models]**: 运行时失败冷却与成功刷新能力表，TTL 过期回退模型列表
+  - 方案: [202603141718_model-health](archive/2026-03/202603141718_model-health/)
+  - 文件: apps/worker/src/routes/proxy.ts, apps/worker/src/services/channel-model-capabilities.ts, apps/worker/src/routes/models.ts, apps/worker/src/routes/newapiUsers.ts, apps/worker/src/services/settings.ts, apps/worker/src/routes/settings.ts, tests/worker/settings.test.ts, tests/worker/channel-model-capabilities.test.ts, .helloagents/modules/proxy.md, .helloagents/modules/models.md, .helloagents/modules/settings.md
+- **[proxy]**: 失败判定简化为非 2xx/超时即失败
+  - 方案: [202603141749_usage-summary](archive/2026-03/202603141749_usage-summary/)
+  - 文件: apps/worker/src/routes/proxy.ts
+- **[usage/proxy]**: 使用日志记录上游失败详情并在日志状态列展示
+  - 方案: [202603141815_usage-log-status](archive/2026-03/202603141815_usage-log-status/)
+  - 文件: apps/worker/migrations/0005_add_usage_error_fields.sql, apps/worker/src/db/schema.sql, apps/worker/src/services/usage.ts, apps/worker/src/routes/proxy.ts, apps/ui/src/core/types.ts, apps/ui/src/core/utils.ts, apps/ui/src/features/UsageView.tsx, tests/ui/usage-status.test.ts, .helloagents/modules/usage.md, .helloagents/modules/admin-ui.md
+- **[admin-ui/usage]**: 状态列改为“状态码 + 错误码”，成功展示 `200 OK`
+  - 方案: [202603141925_usage-status-label](archive/2026-03/202603141925_usage-status-label/)
+  - 文件: apps/worker/src/routes/proxy.ts, apps/ui/src/core/utils.ts, apps/ui/src/features/UsageView.tsx, tests/ui/usage-status.test.ts, .helloagents/modules/usage.md, .helloagents/modules/admin-ui.md
 - **[worker/proxy]**: 移除临时调试日志（请求入口/出口与上游响应汇总）
   - 类型: 微调（无方案包）
   - 文件: apps/worker/src/index.ts, apps/worker/src/routes/proxy.ts
@@ -158,6 +170,62 @@
 - **[proxy]**: 流式请求自动补 `stream_options.include_usage` 以获取 usage
   - 类型: 微调（无方案包）
   - 文件: apps/worker/src/routes/proxy.ts
+
+### 快速修改
+
+- **[admin-ui]**: 修复模型广场渲染语法错误 — by lsy
+  - 类型: 快速修改（无方案包）
+  - 文件: apps/ui/src/features/ModelsView.tsx:16
+- **[admin-ui]**: 站点搜索加入防抖与使用日志状态码/摘要展示优化 — by lsy
+  - 类型: 快速修改（无方案包）
+  - 文件: apps/ui/src/features/SitesView.tsx, apps/ui/src/core/utils.ts, apps/ui/src/features/UsageView.tsx
+- **[admin-ui]**: 提交操作增加即时防重复锁，避免连点重复创建 — by lsy
+  - 类型: 快速修改（无方案包）
+  - 文件: apps/ui/src/App.tsx
+
+## [0.9.4] - 2026-03-15
+
+### 变更
+- **[usage/admin-ui]**: 使用日志改为服务端分页并支持渠道/令牌/模型搜索 — by lsy
+  - 方案: [202603150145_usage-log-pagination-and-channel-disable](archive/2026-03/202603150145_usage-log-pagination-and-channel-disable/)
+  - 决策: usage-log-pagination-and-channel-disable#D001(使用 offset+limit+total 分页协议)
+- **[channels]**: 连通性测试不再覆盖已禁用渠道状态 — by lsy
+  - 方案: [202603150145_usage-log-pagination-and-channel-disable](archive/2026-03/202603150145_usage-log-pagination-and-channel-disable/)
+
+## [0.9.2] - 2026-03-14
+
+### 变更
+- **[usage/proxy]**: 状态列仅展示日志状态码并支持错误详情查看，冷却改为窗口内连续失败触发 — by lsy
+  - 方案: [202603142337_usage-status-cooldown-tuning](archive/2026-03/202603142337_usage-status-cooldown-tuning/)
+  - 决策: usage-status-cooldown-tuning#D001(连续失败阈值冷却)
+
+## [0.9.1] - 2026-03-14
+
+### 变更
+- **[proxy/models/settings/admin-ui]**: 移除模型能力 TTL，路由不再兜底并支持失败冷却配置 — by lsy
+  - 方案: [202603142241_remove-model-ttl-fix-routing](archive/2026-03/202603142241_remove-model-ttl-fix-routing/)
+  - 决策: remove-model-ttl-fix-routing#D001(移除模型能力 TTL)
+
+## [0.9.2] - 2026-03-15
+
+### 变更
+- **[proxy/usage/admin-ui]**: 冷却仅对上游失败触发，使用日志列表仅展示状态码 — by lsy
+  - 方案: [202603150017_usage-status-cooldown-migration](archive/2026-03/202603150017_usage-status-cooldown-migration/)
+  - 决策: usage-status-cooldown-migration#D001(冷却仅针对上游/网络失败)
+
+## [0.9.3] - 2026-03-15
+
+### 变更
+- **[proxy/usage]**: 所有调用写入日志，失败计数仅在成功时清零 — by lsy
+  - 方案: [202603150017_usage-status-cooldown-migration](archive/2026-03/202603150017_usage-status-cooldown-migration/)
+  - 决策: usage-status-cooldown-migration#D001(冷却仅针对上游/网络失败)
+
+## [0.9.0] - 2026-03-14
+
+### 新增
+- **[admin-ui]**: 管理台体验升级（通知分级、确认弹窗、空状态 CTA、视觉主题与动效） — by lsy
+  - 方案: [202603142024_admin-ui-ux-upgrade](archive/2026-03/202603142024_admin-ui-ux-upgrade/)
+  - 决策: admin-ui-ux-upgrade#D001(统一通知与确认对话管理)
 
 ## [0.8.4] - 2026-02-25
 

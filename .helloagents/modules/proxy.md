@@ -14,7 +14,8 @@
 ## 行为规范
 - 基于令牌鉴权
 - 按渠道权重随机排序
-- 调用令牌按顺序选择，未配置时回退 `channels.api_key`
+- 调用令牌按模型列表匹配选择，未配置或无列表时回退 `channels.api_key`
+- 调用令牌模型列表来自渠道连通测试写回
 - done-hub 仅使用 `base_url`，不再按多地址切换
 - 支持从非流式 JSON、响应头与流式 SSE（含 `response.usage` 与 `usageMetadata`）解析 usage 字段
 - 流式请求自动补 `stream_options.include_usage=true` 以便上游返回 usage
@@ -26,7 +27,13 @@
 - 允许 `metadata_json.endpoint_overrides` 覆盖 chat/embedding/image 上游地址（可用 `{model}` 占位）
 - 允许 `metadata_json.header_override` 与 `metadata_json.query_override` 注入额外上游请求头/查询参数
 - Anthropic 默认注入 `anthropic-version=2023-06-01`，可通过 `header_override` 覆盖
-- 路由时优先使用模型能力表（TTL 内测试成功的模型），无能力记录时回退渠道声明模型列表
+- 路由时优先使用模型能力表记录（测试成功的模型），无能力记录时回退渠道声明模型列表
+- 当模型在任意渠道中都不被支持时返回 `no_available_channels`，不回退到全部渠道
+- 上游失败/超时会记录到能力表并进入冷却期（需在窗口内连续失败达到阈值），冷却期内跳过对应渠道/模型
+- 失败计数仅在成功响应时清零
+- 仅 429/5xx/408/timeout/exception 计入冷却，4xx 请求错误不触发冷却
+- 映射模型场景失败时同时记录下游模型错误，确保冷却窗口生效
+- 上游成功响应会刷新能力表，清空错误并延长可用窗口
 
 ## 依赖关系
 - `channels` / `tokens` / `usage_logs` 表

@@ -8,13 +8,13 @@ import {
 	getCheckinScheduleTime,
 	getRetentionDays,
 	getSessionTtlHours,
-	getModelCapabilityTtlHours,
+	getModelFailureCooldownMinutes,
 	isAdminPasswordSet,
 	setAdminPasswordHash,
 	setCheckinScheduleTime,
 	setRetentionDays,
 	setSessionTtlHours,
-	setModelCapabilityTtlHours,
+	setModelFailureCooldownMinutes,
 } from "../services/settings";
 import { sha256Hex } from "../utils/crypto";
 import { jsonError } from "../utils/http";
@@ -29,13 +29,15 @@ settings.get("/", async (c) => {
 	const sessionTtlHours = await getSessionTtlHours(c.env.DB);
 	const adminPasswordSet = await isAdminPasswordSet(c.env.DB);
 	const checkinScheduleTime = await getCheckinScheduleTime(c.env.DB);
-	const modelCapabilityTtlHours = await getModelCapabilityTtlHours(c.env.DB);
+	const modelFailureCooldownMinutes = await getModelFailureCooldownMinutes(
+		c.env.DB,
+	);
 	return c.json({
 		log_retention_days: retention,
 		session_ttl_hours: sessionTtlHours,
 		admin_password_set: adminPasswordSet,
 		checkin_schedule_time: checkinScheduleTime,
-		model_capability_ttl_hours: modelCapabilityTtlHours,
+		model_failure_cooldown_minutes: modelFailureCooldownMinutes,
 	});
 });
 
@@ -80,17 +82,17 @@ settings.put("/", async (c) => {
 		touched = true;
 	}
 
-	if (body.model_capability_ttl_hours !== undefined) {
-		const hours = Number(body.model_capability_ttl_hours);
-		if (Number.isNaN(hours) || hours < 1) {
+	if (body.model_failure_cooldown_minutes !== undefined) {
+		const minutes = Number(body.model_failure_cooldown_minutes);
+		if (Number.isNaN(minutes) || minutes < 1) {
 			return jsonError(
 				c,
 				400,
-				"invalid_model_capability_ttl_hours",
-				"invalid_model_capability_ttl_hours",
+				"invalid_model_failure_cooldown_minutes",
+				"invalid_model_failure_cooldown_minutes",
 			);
 		}
-		await setModelCapabilityTtlHours(c.env.DB, hours);
+		await setModelFailureCooldownMinutes(c.env.DB, minutes);
 		touched = true;
 	}
 

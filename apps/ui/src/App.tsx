@@ -4,6 +4,7 @@ import {
 	useCallback,
 	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "hono/jsx/dom";
 import { createApiFetch } from "./core/api";
@@ -11,6 +12,7 @@ import {
 	initialData,
 	initialSettingsForm,
 	initialSiteForm,
+	initialTokenForm,
 	tabs,
 } from "./core/constants";
 import {
@@ -24,6 +26,8 @@ import type {
 	AdminData,
 	CheckinSummary,
 	DashboardData,
+	NoticeMessage,
+	NoticeTone,
 	Settings,
 	SettingsForm,
 	Site,
@@ -31,9 +35,11 @@ import type {
 	SiteType,
 	TabId,
 	Token,
-	UsageLog,
+	UsageQuery,
+	UsageResponse,
+	TokenForm,
 } from "./core/types";
-import { toggleStatus } from "./core/utils";
+import { toChinaDateTimeInput, toChinaIsoFromInput, toggleStatus } from "./core/utils";
 import { AppLayout } from "./features/AppLayout";
 import { DashboardView } from "./features/DashboardView";
 import { LoginView } from "./features/LoginView";
@@ -80,6 +86,24 @@ const DEFAULT_BASE_URL_BY_TYPE: Partial<Record<SiteType, string>> = {
 	gemini: "https://generativelanguage.googleapis.com",
 };
 
+type ConfirmState = {
+	title: string;
+	message: string;
+	confirmLabel?: string;
+	tone?: NoticeTone;
+	onConfirm: () => Promise<void> | void;
+};
+
+const buildActionKey = (scope: string, id?: string) =>
+	id ? `${scope}:${id}` : scope;
+
+const initialUsageQuery: UsageQuery = {
+	channel: "",
+	token: "",
+	model: "",
+	status: "",
+};
+
 /**
  * Renders the admin console application.
  *
@@ -98,7 +122,7 @@ const App = () => {
 		return pathToTab[normalized] ?? "dashboard";
 	});
 	const [loading, setLoading] = useState(false);
-	const [notice, setNotice] = useState("");
+	const [notice, setNotice] = useState<NoticeMessage | null>(null);
 	const [data, setData] = useState<AdminData>(initialData);
 	const [settingsForm, setSettingsForm] =
 		useState<SettingsForm>(initialSettingsForm);
@@ -111,6 +135,16 @@ const App = () => {
 	});
 	const [tokenPage, setTokenPage] = useState(1);
 	const [tokenPageSize, setTokenPageSize] = useState(10);
+	const [editingToken, setEditingToken] = useState<Token | null>(null);
+	const [tokenForm, setTokenForm] =
+		useState<TokenForm>(initialTokenForm);
+	const [usagePage, setUsagePage] = useState(1);
+	const [usagePageSize, setUsagePageSize] = useState(50);
+	const [usageTotal, setUsageTotal] = useState(0);
+	const [usageFilters, setUsageFilters] =
+		useState<UsageQuery>(initialUsageQuery);
+	const [usageQuery, setUsageQuery] =
+		useState<UsageQuery>(initialUsageQuery);
 	const [editingSite, setEditingSite] = useState<Site | null>(null);
 	const [siteForm, setSiteForm] = useState<SiteForm>(() => ({
 		...initialSiteForm,
@@ -121,6 +155,10 @@ const App = () => {
 		null,
 	);
 	const [checkinLastRun, setCheckinLastRun] = useState<string | null>(null);
+	const [, setPendingActions] = useState<Set<string>>(() => new Set());
+	const pendingActionsRef = useRef<Set<string>>(new Set());
+	const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+	const [confirmPending, setConfirmPending] = useState(false);
 
 	const updateToken = useCallback((next: string | null) => {
 		setToken(next);
@@ -131,6 +169,81 @@ const App = () => {
 		}
 	}, []);
 
+	const pushNotice = useCallback((tone: NoticeTone, message: string) => {
+		setNotice({ tone, message, id: Date.now() });
+	}, []);
+
+	const dismissNotice = useCallback(() => {
+		setNotice(null);
+	}, []);
+
+	useEffect(() => {
+		if (!notice) {
+			return;
+		}
+		const timer = window.setTimeout(() => {
+			setNotice(null);
+		}, 4500);
+		return () => window.clearTimeout(timer);
+	}, [notice]);
+
+	const startAction = useCallback((key: string) => {
+		if (pendingActionsRef.current.has(key)) {
+			return;
+		}
+		pendingActionsRef.current.add(key);
+		setPendingActions(new Set(pendingActionsRef.current));
+	}, []);
+
+	const endAction = useCallback((key: string) => {
+		pendingActionsRef.current.delete(key);
+		setPendingActions(new Set(pendingActionsRef.current));
+	}, []);
+
+	const isActionPending = useCallback(
+		(key: string) => pendingActionsRef.current.has(key),
+		[],
+	);
+
+	const openConfirm = useCallback((state: ConfirmState) => {
+		setConfirmState(state);
+	}, []);
+
+	const closeConfirm = useCallback(() => {
+		if (!confirmPending) {
+			setConfirmState(null);
+		}
+	}, [confirmPending]);
+
+	const handleConfirm = useCallback(async () => {
+		if (!confirmState || confirmPending) {
+			return;
+		}
+		setConfirmPending(true);
+		try {
+			await confirmState.onConfirm();
+		} finally {
+			setConfirmPending(false);
+			setConfirmState(null);
+		}
+	}, [confirmPending, confirmState]);
+
+	useEffect(() => {
+		if (!confirmState) {
+			return;
+		}
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				event.preventDefault();
+				closeConfirm();
+			}
+		};
+		window.addEventListener("keydown", handleKeyDown);
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [confirmState, closeConfirm]);
+
 	const apiFetch = useMemo(
 		() => createApiFetch(token, () => updateToken(null)),
 		[token, updateToken],
@@ -140,6 +253,22 @@ const App = () => {
 		const dashboard = await apiFetch<DashboardData>("/api/dashboard");
 		setData((prev) => ({ ...prev, dashboard }));
 	}, [apiFetch]);
+
+	const handleDashboardRefresh = useCallback(async () => {
+		const actionKey = buildActionKey("dashboard:refresh");
+		if (isActionPending(actionKey)) {
+			return;
+		}
+		startAction(actionKey);
+		try {
+			await loadDashboard();
+			pushNotice("success", "数据已刷新");
+		} catch (error) {
+			pushNotice("error", (error as Error).message);
+		} finally {
+			endAction(actionKey);
+		}
+	}, [endAction, isActionPending, loadDashboard, pushNotice, startAction]);
 
 	const loadSites = useCallback(async () => {
 		const result = await apiFetch<{
@@ -166,10 +295,43 @@ const App = () => {
 		setData((prev) => ({ ...prev, tokens: result.tokens }));
 	}, [apiFetch]);
 
-	const loadUsage = useCallback(async () => {
-		const result = await apiFetch<{ logs: UsageLog[] }>("/api/usage?limit=200");
-		setData((prev) => ({ ...prev, usage: result.logs }));
-	}, [apiFetch]);
+	const loadUsage = useCallback(
+		async (options?: {
+			page?: number;
+			pageSize?: number;
+			query?: UsageQuery;
+		}) => {
+			const page = options?.page ?? usagePage;
+			const pageSize = options?.pageSize ?? usagePageSize;
+			const query = options?.query ?? usageQuery;
+			const params = new URLSearchParams();
+			const offset = Math.max(0, (page - 1) * pageSize);
+			params.set("limit", String(pageSize));
+			params.set("offset", String(offset));
+			const channel = query.channel.trim();
+			const token = query.token.trim();
+			const model = query.model.trim();
+			const status = query.status.trim();
+			if (channel) {
+				params.set("channel", channel);
+			}
+			if (token) {
+				params.set("token", token);
+			}
+			if (model) {
+				params.set("model", model);
+			}
+			if (status) {
+				params.set("status", status);
+			}
+			const result = await apiFetch<UsageResponse>(
+				`/api/usage?${params.toString()}`,
+			);
+			setData((prev) => ({ ...prev, usage: result.logs }));
+			setUsageTotal(result.total ?? result.logs.length);
+		},
+		[apiFetch, usagePage, usagePageSize, usageQuery],
+	);
 
 	const loadSettings = useCallback(async () => {
 		const settings = await apiFetch<Settings>("/api/settings");
@@ -179,7 +341,7 @@ const App = () => {
 	const loadTab = useCallback(
 		async (tabId: TabId) => {
 			setLoading(true);
-			setNotice("");
+			dismissNotice();
 			try {
 				if (tabId === "dashboard") {
 					await loadDashboard();
@@ -191,7 +353,7 @@ const App = () => {
 					await loadModels();
 				}
 				if (tabId === "tokens") {
-					await loadTokens();
+					await Promise.all([loadTokens(), loadSites()]);
 				}
 				if (tabId === "usage") {
 					await loadUsage();
@@ -200,12 +362,21 @@ const App = () => {
 					await loadSettings();
 				}
 			} catch (error) {
-				setNotice((error as Error).message);
+				pushNotice("error", (error as Error).message);
 			} finally {
 				setLoading(false);
 			}
 		},
-		[loadDashboard, loadSites, loadModels, loadSettings, loadTokens, loadUsage],
+		[
+			dismissNotice,
+			loadDashboard,
+			loadModels,
+			loadSettings,
+			loadSites,
+			loadTokens,
+			loadUsage,
+			pushNotice,
+		],
 	);
 
 	useEffect(() => {
@@ -234,12 +405,20 @@ const App = () => {
 			session_ttl_hours: String(data.settings.session_ttl_hours ?? 12),
 			admin_password: "",
 			checkin_schedule_time: data.settings.checkin_schedule_time ?? "00:10",
+			model_failure_cooldown_minutes: String(
+				data.settings.model_failure_cooldown_minutes ?? 10,
+			),
 		});
 	}, [data.settings]);
 
 	const handleLogin = useCallback(
 		async (event: Event) => {
 			event.preventDefault();
+			const actionKey = buildActionKey("login:submit");
+			if (isActionPending(actionKey)) {
+				return;
+			}
+			startAction(actionKey);
 			const form = event.currentTarget as HTMLFormElement;
 			const formData = new FormData(form);
 			const password = String(formData.get("password") ?? "");
@@ -249,12 +428,22 @@ const App = () => {
 					body: JSON.stringify({ password }),
 				});
 				updateToken(result.token);
-				setNotice("");
+				dismissNotice();
 			} catch (error) {
-				setNotice((error as Error).message);
+				pushNotice("error", (error as Error).message);
+			} finally {
+				endAction(actionKey);
 			}
 		},
-		[apiFetch, updateToken],
+		[
+			apiFetch,
+			dismissNotice,
+			endAction,
+			isActionPending,
+			pushNotice,
+			startAction,
+			updateToken,
+		],
 	);
 
 	const handleLogout = useCallback(async () => {
@@ -286,6 +475,10 @@ const App = () => {
 		[],
 	);
 
+	const handleTokenFormChange = useCallback((patch: Partial<TokenForm>) => {
+		setTokenForm((prev) => ({ ...prev, ...patch }));
+	}, []);
+
 	const handleSitePageChange = useCallback((next: number) => {
 		setSitePage(next);
 	}, []);
@@ -312,14 +505,123 @@ const App = () => {
 		setTokenPage(1);
 	}, []);
 
+	const handleUsagePageChange = useCallback(
+		async (next: number) => {
+			if (next === usagePage) {
+				return;
+			}
+			const actionKey = buildActionKey("usage:load");
+			if (isActionPending(actionKey)) {
+				return;
+			}
+			startAction(actionKey);
+			setUsagePage(next);
+			try {
+				await loadUsage({ page: next });
+			} catch (error) {
+				pushNotice("error", (error as Error).message);
+			} finally {
+				endAction(actionKey);
+			}
+		},
+		[
+			endAction,
+			isActionPending,
+			loadUsage,
+			pushNotice,
+			startAction,
+			usagePage,
+		],
+	);
+
+	const handleUsagePageSizeChange = useCallback(
+		async (next: number) => {
+			const actionKey = buildActionKey("usage:load");
+			if (isActionPending(actionKey)) {
+				return;
+			}
+			startAction(actionKey);
+			setUsagePageSize(next);
+			setUsagePage(1);
+			try {
+				await loadUsage({ page: 1, pageSize: next });
+			} catch (error) {
+				pushNotice("error", (error as Error).message);
+			} finally {
+				endAction(actionKey);
+			}
+		},
+		[endAction, isActionPending, loadUsage, pushNotice, startAction],
+	);
+
+	const handleUsageFiltersChange = useCallback(
+		(patch: Partial<UsageQuery>) => {
+			setUsageFilters((prev) => ({ ...prev, ...patch }));
+		},
+		[],
+	);
+
+	const handleUsageSearch = useCallback(async () => {
+		const actionKey = buildActionKey("usage:load");
+		if (isActionPending(actionKey)) {
+			return;
+		}
+		const nextQuery = {
+			channel: usageFilters.channel.trim(),
+			token: usageFilters.token.trim(),
+			model: usageFilters.model.trim(),
+			status: usageFilters.status.trim(),
+		};
+		startAction(actionKey);
+		setUsageQuery(nextQuery);
+		setUsagePage(1);
+		setUsageFilters(nextQuery);
+		try {
+			await loadUsage({ page: 1, query: nextQuery });
+		} catch (error) {
+			pushNotice("error", (error as Error).message);
+		} finally {
+			endAction(actionKey);
+		}
+	}, [
+		endAction,
+		isActionPending,
+		loadUsage,
+		pushNotice,
+		startAction,
+		usageFilters.channel,
+		usageFilters.model,
+		usageFilters.status,
+		usageFilters.token,
+	]);
+
+	const handleUsageClear = useCallback(async () => {
+		const actionKey = buildActionKey("usage:load");
+		if (isActionPending(actionKey)) {
+			return;
+		}
+		startAction(actionKey);
+		setUsageFilters(initialUsageQuery);
+		setUsageQuery(initialUsageQuery);
+		setUsagePage(1);
+		try {
+			await loadUsage({ page: 1, query: initialUsageQuery });
+		} catch (error) {
+			pushNotice("error", (error as Error).message);
+		} finally {
+			endAction(actionKey);
+		}
+	}, [endAction, isActionPending, loadUsage, pushNotice, startAction]);
+
 	const handleTabChange = useCallback((tabId: TabId) => {
 		const nextPath = tabToPath[tabId];
 		const normalized = normalizePath(window.location.pathname);
 		if (normalized !== nextPath) {
 			history.pushState(null, "", nextPath);
 		}
+		dismissNotice();
 		setActiveTab(tabId);
-	}, []);
+	}, [dismissNotice]);
 
 	const closeSiteModal = useCallback(() => {
 		setEditingSite(null);
@@ -331,13 +633,15 @@ const App = () => {
 		setEditingSite(null);
 		setSiteForm({ ...initialSiteForm });
 		setSiteModalOpen(true);
-		setNotice("");
-	}, []);
+		dismissNotice();
+	}, [dismissNotice]);
 
 	const openTokenCreate = useCallback(() => {
+		setEditingToken(null);
+		setTokenForm({ ...initialTokenForm });
 		setTokenModalOpen(true);
-		setNotice("");
-	}, []);
+		dismissNotice();
+	}, [dismissNotice]);
 
 	const startSiteEdit = useCallback((site: Site) => {
 		setEditingSite(site);
@@ -379,149 +683,38 @@ const App = () => {
 			call_tokens: tokenForms,
 		});
 		setSiteModalOpen(true);
-		setNotice("");
-	}, []);
+		dismissNotice();
+	}, [dismissNotice]);
 
 	const closeTokenModal = useCallback(() => {
 		setTokenModalOpen(false);
+		setEditingToken(null);
+		setTokenForm({ ...initialTokenForm });
 	}, []);
 
-	const handleSiteSubmit = useCallback(
-		async (event: Event) => {
-			event.preventDefault();
-			const siteName = siteForm.name.trim();
-			const normalizedName = siteName.toLowerCase();
-			const nameExists = data.sites.some(
-				(site) =>
-					site.name.trim().toLowerCase() === normalizedName &&
-					site.id !== editingSite?.id,
-			);
-			if (nameExists) {
-				setNotice("站点名称已存在，请使用其他名称");
-				return;
-			}
-			const baseUrlValue = siteForm.base_url.trim();
-			if (!baseUrlValue && !DEFAULT_BASE_URL_BY_TYPE[siteForm.site_type]) {
-				setNotice("基础 URL 不能为空");
-				return;
-			}
-			const callTokens = siteForm.call_tokens
-				.map((token, index) => ({
-					id: token.id,
-					name: token.name.trim() || `调用令牌${index + 1}`,
-					api_key: token.api_key.trim(),
-				}))
-				.filter((token) => token.api_key.length > 0);
-			if (callTokens.length === 0) {
-				setNotice("至少填写一个调用令牌");
-				return;
-			}
-			if (
-				siteForm.site_type === "new-api" &&
-				siteForm.checkin_enabled &&
-				(!siteForm.system_token.trim() || !siteForm.system_userid.trim())
-			) {
-				setNotice("启用签到需要填写系统令牌与 User ID");
-				return;
-			}
-			try {
-				const body = {
-					name: siteName,
-					base_url: baseUrlValue,
-					weight: Number(siteForm.weight),
-					status: siteForm.status,
-					site_type: siteForm.site_type,
-					system_token: siteForm.system_token.trim(),
-					system_userid: siteForm.system_userid.trim(),
-					checkin_url: siteForm.checkin_url.trim() || null,
-					checkin_enabled: siteForm.checkin_enabled,
-					call_tokens: callTokens,
-				};
-				if (editingSite) {
-					await apiFetch(`/api/sites/${editingSite.id}`, {
-						method: "PATCH",
-						body: JSON.stringify(body),
-					});
-					setNotice("站点已更新");
-				} else {
-					await apiFetch("/api/sites", {
-						method: "POST",
-						body: JSON.stringify(body),
-					});
-					setNotice("站点已创建");
-				}
-				closeSiteModal();
-				await loadSites();
-			} catch (error) {
-				setNotice((error as Error).message);
-			}
-		},
-		[apiFetch, siteForm, closeSiteModal, data.sites, editingSite, loadSites],
-	);
-
-	const handleTokenSubmit = useCallback(
-		async (event: Event) => {
-			event.preventDefault();
-			const form = event.currentTarget as HTMLFormElement;
-			const formData = new FormData(form);
-			const payload: Record<string, FormDataEntryValue> = {};
-			formData.forEach((value, key) => {
-				payload[key] = value;
-			});
-			try {
-				const result = await apiFetch<{ token: string }>("/api/tokens", {
-					method: "POST",
-					body: JSON.stringify({
-						name: payload.name,
-						quota_total: payload.quota_total
-							? Number(payload.quota_total)
-							: null,
-					}),
-				});
-				setNotice(`新令牌: ${result.token}`);
-				form.reset();
-				setTokenModalOpen(false);
-				setTokenPage(1);
-				await loadTokens();
-			} catch (error) {
-				setNotice((error as Error).message);
-			}
-		},
-		[apiFetch, loadTokens],
-	);
-
-	const handleSettingsSubmit = useCallback(
-		async (event: Event) => {
-			event.preventDefault();
-			const retention = Number(settingsForm.log_retention_days);
-			const sessionTtlHours = Number(settingsForm.session_ttl_hours);
-			const payload: Record<string, number | string | boolean> = {
-				log_retention_days: retention,
-				session_ttl_hours: sessionTtlHours,
-				checkin_schedule_time:
-					settingsForm.checkin_schedule_time.trim() || "00:10",
-			};
-			const password = settingsForm.admin_password.trim();
-			if (password) {
-				payload.admin_password = password;
-			}
-			try {
-				await apiFetch("/api/settings", {
-					method: "PUT",
-					body: JSON.stringify(payload),
-				});
-				await loadSettings();
-				setSettingsForm((prev) => ({ ...prev, admin_password: "" }));
-				setNotice("设置已更新");
-			} catch (error) {
-				setNotice((error as Error).message);
-			}
-		},
-		[apiFetch, loadSettings, settingsForm],
-	);
+	const openTokenEdit = useCallback((tokenItem: Token) => {
+		setEditingToken(tokenItem);
+		setTokenForm({
+			name: tokenItem.name ?? "",
+			quota_total:
+				tokenItem.quota_total === null || tokenItem.quota_total === undefined
+					? ""
+					: String(tokenItem.quota_total),
+			status: tokenItem.status ?? "active",
+			expires_at: toChinaDateTimeInput(tokenItem.expires_at ?? null),
+			allowed_channels: tokenItem.allowed_channels ?? [],
+		});
+		setTokenModalOpen(true);
+		dismissNotice();
+	}, [dismissNotice]);
 
 	const handleSiteTest = useCallback(
 		async (id: string) => {
+			const actionKey = buildActionKey("site:test", id);
+			if (isActionPending(actionKey)) {
+				return;
+			}
+			startAction(actionKey);
 			try {
 				const result = await apiFetch<{
 					models: Array<{ id: string }>;
@@ -541,70 +734,372 @@ const App = () => {
 							summary.failed > 0 ? `，失败 ${summary.failed}` : ""
 						}`
 					: "";
-				setNotice(`连通测试完成，模型数 ${modelCount}${detail}`);
+				pushNotice("success", `连通测试完成，模型数 ${modelCount}${detail}`);
 			} catch (error) {
-				setNotice((error as Error).message);
+				pushNotice("error", (error as Error).message);
+			} finally {
+				endAction(actionKey);
 			}
 		},
-		[apiFetch, loadSites],
+		[endAction, isActionPending, loadSites, pushNotice, startAction, apiFetch],
 	);
 
 	const handleSiteTestAll = useCallback(async () => {
-		if (data.sites.length === 0) {
-			setNotice("暂无站点可测试");
+		const actionKey = buildActionKey("site:testAll");
+		if (isActionPending(actionKey)) {
 			return;
 		}
-		setNotice("正在执行一键测试...");
+		if (data.sites.length === 0) {
+			pushNotice("warning", "暂无站点可测试");
+			return;
+		}
+		startAction(actionKey);
+		pushNotice("info", "正在执行一键测试...");
 		const results: SiteTestResult[] = [];
-		for (const site of data.sites) {
-			if (site.status !== "active") {
-				results.push({ status: "skipped" });
-				continue;
+		try {
+			for (const site of data.sites) {
+				if (site.status !== "active") {
+					results.push({ status: "skipped" });
+					continue;
+				}
+				try {
+					await apiFetch(`/api/channels/${site.id}/test`, {
+						method: "POST",
+					});
+					results.push({ status: "success" });
+				} catch (_error) {
+					results.push({ status: "failed" });
+				}
+			}
+			await loadSites();
+			const summary = summarizeSiteTests(results);
+			const testedTotal = summary.success + summary.failed;
+			if (testedTotal === 0) {
+				pushNotice("info", `已跳过 ${summary.skipped} 个禁用站点，暂无可测试站点。`);
+				return;
+			}
+			let message =
+				summary.failed > 0
+					? `一键测试完成，成功 ${summary.success}/${testedTotal}，失败 ${summary.failed}。`
+					: `一键测试完成，成功 ${summary.success}/${testedTotal}。`;
+			if (summary.skipped > 0) {
+				message += ` 已跳过 ${summary.skipped} 个禁用站点。`;
+			}
+			pushNotice(summary.failed > 0 ? "warning" : "success", message);
+		} finally {
+			endAction(actionKey);
+		}
+	}, [apiFetch, data.sites, endAction, isActionPending, loadSites, pushNotice, startAction]);
+
+	const handleSiteSubmit = useCallback(
+		async (event: Event) => {
+			event.preventDefault();
+			const actionKey = buildActionKey("site:submit");
+			if (isActionPending(actionKey)) {
+				return;
+			}
+			const siteName = siteForm.name.trim();
+			const normalizedName = siteName.toLowerCase();
+			const nameExists = data.sites.some(
+				(site) =>
+					site.name.trim().toLowerCase() === normalizedName &&
+					site.id !== editingSite?.id,
+			);
+			if (nameExists) {
+				pushNotice("warning", "站点名称已存在，请使用其他名称");
+				return;
+			}
+			const baseUrlValue = siteForm.base_url.trim();
+			if (!baseUrlValue && !DEFAULT_BASE_URL_BY_TYPE[siteForm.site_type]) {
+				pushNotice("warning", "基础 URL 不能为空");
+				return;
+			}
+			const callTokens = siteForm.call_tokens
+				.map((token, index) => ({
+					id: token.id,
+					name: token.name.trim() || `调用令牌${index + 1}`,
+					api_key: token.api_key.trim(),
+				}))
+				.filter((token) => token.api_key.length > 0);
+			if (callTokens.length === 0) {
+				pushNotice("warning", "至少填写一个调用令牌");
+				return;
+			}
+			if (
+				siteForm.site_type === "new-api" &&
+				siteForm.checkin_enabled &&
+				(!siteForm.system_token.trim() || !siteForm.system_userid.trim())
+			) {
+				pushNotice("warning", "启用签到需要填写系统令牌与 User ID");
+				return;
+			}
+			startAction(actionKey);
+			try {
+				const body = {
+					name: siteName,
+					base_url: baseUrlValue,
+					weight: Number(siteForm.weight),
+					status: siteForm.status,
+					site_type: siteForm.site_type,
+					system_token: siteForm.system_token.trim(),
+					system_userid: siteForm.system_userid.trim(),
+					checkin_url: siteForm.checkin_url.trim() || null,
+					checkin_enabled: siteForm.checkin_enabled,
+					call_tokens: callTokens,
+				};
+				let siteId = editingSite?.id ?? null;
+				let actionLabel = "创建";
+				if (editingSite) {
+					await apiFetch(`/api/sites/${editingSite.id}`, {
+						method: "PATCH",
+						body: JSON.stringify(body),
+					});
+					actionLabel = "更新";
+				} else {
+					const created = await apiFetch<{ id: string }>("/api/sites", {
+						method: "POST",
+						body: JSON.stringify(body),
+					});
+					siteId = created.id;
+				}
+				closeSiteModal();
+				await loadSites();
+				if (siteId) {
+					pushNotice("info", `站点已${actionLabel}，正在自动测试...`);
+					await handleSiteTest(siteId);
+				} else {
+					pushNotice("success", `站点已${actionLabel}`);
+				}
+			} catch (error) {
+				pushNotice("error", (error as Error).message);
+			} finally {
+				endAction(actionKey);
+			}
+		},
+		[
+			apiFetch,
+			closeSiteModal,
+			data.sites,
+			editingSite,
+			endAction,
+			isActionPending,
+			loadSites,
+			handleSiteTest,
+			pushNotice,
+			siteForm,
+			startAction,
+		],
+	);
+
+	const handleTokenSubmit = useCallback(
+		async (event: Event) => {
+			event.preventDefault();
+			const actionKey = buildActionKey("token:submit");
+			if (isActionPending(actionKey)) {
+				return;
+			}
+			startAction(actionKey);
+			try {
+				const name = tokenForm.name.trim();
+				if (!name) {
+					pushNotice("warning", "请输入令牌名称");
+					return;
+				}
+				const quotaInput = tokenForm.quota_total.trim();
+				const quotaTotal =
+					quotaInput.length === 0 ? null : Number(quotaInput);
+				if (quotaInput.length > 0 && Number.isNaN(quotaTotal)) {
+					pushNotice("warning", "额度需为数字");
+					return;
+				}
+				const expiresAtInput = tokenForm.expires_at.trim();
+				const expiresAtIso = toChinaIsoFromInput(expiresAtInput);
+				if (expiresAtInput && !expiresAtIso) {
+					pushNotice("warning", "过期时间格式无效");
+					return;
+				}
+				const allowedChannels = tokenForm.allowed_channels.filter(Boolean);
+				if (editingToken) {
+					await apiFetch(`/api/tokens/${editingToken.id}`, {
+						method: "PATCH",
+						body: JSON.stringify({
+							name,
+							quota_total: quotaTotal,
+							status: tokenForm.status,
+							expires_at: expiresAtIso,
+							allowed_channels: allowedChannels,
+						}),
+					});
+					pushNotice("success", "令牌已更新");
+					setTokenModalOpen(false);
+					setEditingToken(null);
+					setTokenForm({ ...initialTokenForm });
+					await loadTokens();
+					return;
+				}
+
+				const result = await apiFetch<{ token: string }>("/api/tokens", {
+					method: "POST",
+					body: JSON.stringify({
+						name,
+						quota_total: quotaTotal,
+						status: tokenForm.status,
+						expires_at: expiresAtIso,
+						allowed_channels: allowedChannels,
+					}),
+				});
+				let message = `新令牌: ${result.token}`;
+				try {
+					await navigator.clipboard.writeText(result.token);
+					message = "新令牌已复制到剪贴板，请妥善保存。";
+				} catch (_clipboardError) {
+					// keep token in message if clipboard fails
+				}
+				pushNotice("success", message);
+				setTokenModalOpen(false);
+				setTokenForm({ ...initialTokenForm });
+				setTokenPage(1);
+				await loadTokens();
+			} catch (error) {
+				pushNotice("error", (error as Error).message);
+			} finally {
+				endAction(actionKey);
+			}
+	},
+	[
+		apiFetch,
+		editingToken,
+		endAction,
+		initialTokenForm,
+		isActionPending,
+		loadTokens,
+		pushNotice,
+		startAction,
+		tokenForm.expires_at,
+		tokenForm.allowed_channels,
+		tokenForm.name,
+		tokenForm.quota_total,
+		tokenForm.status,
+	],
+);
+
+	const handleSettingsSubmit = useCallback(
+		async (event: Event) => {
+			event.preventDefault();
+			const actionKey = buildActionKey("settings:submit");
+			if (isActionPending(actionKey)) {
+				return;
+			}
+			const retention = Number(settingsForm.log_retention_days);
+			const sessionTtlHours = Number(settingsForm.session_ttl_hours);
+			const failureCooldownMinutes = Number(
+				settingsForm.model_failure_cooldown_minutes,
+			);
+			if (
+				Number.isNaN(retention) ||
+				retention < 1 ||
+				Number.isNaN(sessionTtlHours) ||
+				sessionTtlHours < 1
+			) {
+				pushNotice("warning", "请填写有效的保留天数与会话时长");
+				return;
+			}
+			if (
+				Number.isNaN(failureCooldownMinutes) ||
+				failureCooldownMinutes < 1
+			) {
+				pushNotice("warning", "失败冷却需为正整数");
+				return;
+			}
+			startAction(actionKey);
+			const payload: Record<string, number | string | boolean> = {
+				log_retention_days: retention,
+				session_ttl_hours: sessionTtlHours,
+				checkin_schedule_time:
+					settingsForm.checkin_schedule_time.trim() || "00:10",
+				model_failure_cooldown_minutes: failureCooldownMinutes,
+			};
+			const password = settingsForm.admin_password.trim();
+			if (password) {
+				payload.admin_password = password;
 			}
 			try {
-				await apiFetch(`/api/channels/${site.id}/test`, {
-					method: "POST",
+				await apiFetch("/api/settings", {
+					method: "PUT",
+					body: JSON.stringify(payload),
 				});
-				results.push({ status: "success" });
-			} catch (_error) {
-				results.push({ status: "failed" });
+				await loadSettings();
+				setSettingsForm((prev) => ({ ...prev, admin_password: "" }));
+				pushNotice("success", "设置已更新");
+			} catch (error) {
+				pushNotice("error", (error as Error).message);
+			} finally {
+				endAction(actionKey);
 			}
-		}
-		await loadSites();
-		const summary = summarizeSiteTests(results);
-		const testedTotal = summary.success + summary.failed;
-		if (testedTotal === 0) {
-			setNotice(`已跳过 ${summary.skipped} 个禁用站点，暂无可测试站点。`);
-			return;
-		}
-		let message =
-			summary.failed > 0
-				? `一键测试完成，成功 ${summary.success}/${testedTotal}，失败 ${summary.failed}。`
-				: `一键测试完成，成功 ${summary.success}/${testedTotal}。`;
-		if (summary.skipped > 0) {
-			message += ` 已跳过 ${summary.skipped} 个禁用站点。`;
-		}
-		setNotice(message);
-	}, [apiFetch, data.sites, loadSites]);
+		},
+		[
+			apiFetch,
+			endAction,
+			isActionPending,
+			loadSettings,
+			pushNotice,
+			settingsForm,
+			startAction,
+		],
+	);
 
 	const handleSiteDelete = useCallback(
 		async (id: string) => {
+			const actionKey = buildActionKey("site:delete", id);
+			if (isActionPending(actionKey)) {
+				return;
+			}
+			startAction(actionKey);
 			try {
 				await apiFetch(`/api/sites/${id}`, { method: "DELETE" });
 				await loadSites();
-				setNotice("站点已删除");
+				pushNotice("success", "站点已删除");
 				if (editingSite?.id === id) {
 					closeSiteModal();
 				}
 			} catch (error) {
-				setNotice((error as Error).message);
+				pushNotice("error", (error as Error).message);
+			} finally {
+				endAction(actionKey);
 			}
 		},
-		[apiFetch, closeSiteModal, editingSite, loadSites],
+		[
+			apiFetch,
+			closeSiteModal,
+			editingSite,
+			endAction,
+			isActionPending,
+			loadSites,
+			pushNotice,
+			startAction,
+		],
+	);
+
+	const requestSiteDelete = useCallback(
+		(site: Site) => {
+			openConfirm({
+				title: "删除站点",
+				message: `确定删除“${site.name || "该站点"}”吗？此操作不可恢复。`,
+				confirmLabel: "删除站点",
+				tone: "error",
+				onConfirm: () => handleSiteDelete(site.id),
+			});
+		},
+		[handleSiteDelete, openConfirm],
 	);
 
 	const handleSiteToggle = useCallback(
 		async (id: string, status: string) => {
+			const actionKey = buildActionKey("site:toggle", id);
+			if (isActionPending(actionKey)) {
+				return;
+			}
+			startAction(actionKey);
 			try {
 				const next = toggleStatus(status);
 				await apiFetch(`/api/sites/${id}`, {
@@ -612,52 +1107,86 @@ const App = () => {
 					body: JSON.stringify({ status: next }),
 				});
 				await loadSites();
-				setNotice(`站点已${next === "active" ? "启用" : "停用"}`);
+				pushNotice("success", `站点已${next === "active" ? "启用" : "停用"}`);
 			} catch (error) {
-				setNotice((error as Error).message);
+				pushNotice("error", (error as Error).message);
+			} finally {
+				endAction(actionKey);
 			}
 		},
-		[apiFetch, loadSites],
+		[endAction, isActionPending, loadSites, pushNotice, startAction, apiFetch],
 	);
 
 	const handleTokenDelete = useCallback(
 		async (id: string) => {
+			const actionKey = buildActionKey("token:delete", id);
+			if (isActionPending(actionKey)) {
+				return;
+			}
+			startAction(actionKey);
 			try {
 				await apiFetch(`/api/tokens/${id}`, { method: "DELETE" });
 				await loadTokens();
-				setNotice("令牌已删除");
+				pushNotice("success", "令牌已删除");
 			} catch (error) {
-				setNotice((error as Error).message);
+				pushNotice("error", (error as Error).message);
+			} finally {
+				endAction(actionKey);
 			}
 		},
-		[apiFetch, loadTokens],
+		[endAction, isActionPending, loadTokens, pushNotice, startAction, apiFetch],
+	);
+
+	const requestTokenDelete = useCallback(
+		(token: Token) => {
+			openConfirm({
+				title: "删除令牌",
+				message: `确定删除“${token.name || "该令牌"}”吗？此操作不可恢复。`,
+				confirmLabel: "删除令牌",
+				tone: "error",
+				onConfirm: () => handleTokenDelete(token.id),
+			});
+		},
+		[handleTokenDelete, openConfirm],
 	);
 
 	const handleTokenReveal = useCallback(
 		async (id: string) => {
+			const actionKey = buildActionKey("token:reveal", id);
+			if (isActionPending(actionKey)) {
+				return;
+			}
+			startAction(actionKey);
 			try {
 				const result = await apiFetch<{ token: string | null }>(
 					`/api/tokens/${id}/reveal`,
 				);
 				if (!result.token) {
-					setNotice("未找到令牌");
+					pushNotice("warning", "未找到令牌");
 					return;
 				}
 				try {
 					await navigator.clipboard.writeText(result.token);
-					setNotice(`令牌已复制到剪贴板：${result.token}`);
+					pushNotice("success", "令牌已复制到剪贴板。");
 				} catch (_clipboardError) {
-					setNotice(`令牌: ${result.token}`);
+					pushNotice("info", `令牌: ${result.token}`);
 				}
 			} catch (error) {
-				setNotice((error as Error).message);
+				pushNotice("error", (error as Error).message);
+			} finally {
+				endAction(actionKey);
 			}
 		},
-		[apiFetch],
+		[endAction, isActionPending, pushNotice, startAction, apiFetch],
 	);
 
 	const handleTokenToggle = useCallback(
 		async (id: string, status: string) => {
+			const actionKey = buildActionKey("token:toggle", id);
+			if (isActionPending(actionKey)) {
+				return;
+			}
+			startAction(actionKey);
 			try {
 				const next = toggleStatus(status);
 				await apiFetch(`/api/tokens/${id}`, {
@@ -665,15 +1194,22 @@ const App = () => {
 					body: JSON.stringify({ status: next }),
 				});
 				await loadTokens();
-				setNotice(`令牌已${next === "active" ? "启用" : "停用"}`);
+				pushNotice("success", `令牌已${next === "active" ? "启用" : "停用"}`);
 			} catch (error) {
-				setNotice((error as Error).message);
+				pushNotice("error", (error as Error).message);
+			} finally {
+				endAction(actionKey);
 			}
 		},
-		[apiFetch, loadTokens],
+		[endAction, isActionPending, loadTokens, pushNotice, startAction, apiFetch],
 	);
 
 	const handleCheckinRunAll = useCallback(async () => {
+		const actionKey = buildActionKey("site:checkinAll");
+		if (isActionPending(actionKey)) {
+			return;
+		}
+		startAction(actionKey);
 		try {
 			const result = await apiFetch<{
 				results: Array<{
@@ -691,24 +1227,34 @@ const App = () => {
 			await loadSites();
 			setCheckinSummary(result.summary);
 			setCheckinLastRun(result.runs_at);
-			setNotice(
+			pushNotice(
+				result.summary.failed > 0 ? "warning" : "success",
 				result.summary.failed > 0
 					? "一键签到完成，有部分站点失败。"
 					: "一键签到完成。",
 			);
 		} catch (error) {
-			setNotice((error as Error).message);
+			pushNotice("error", (error as Error).message);
+		} finally {
+			endAction(actionKey);
 		}
-	}, [apiFetch, loadSites]);
+	}, [apiFetch, endAction, isActionPending, loadSites, pushNotice, startAction]);
 
 	const handleUsageRefresh = useCallback(async () => {
+		const actionKey = buildActionKey("usage:refresh");
+		if (isActionPending(actionKey)) {
+			return;
+		}
+		startAction(actionKey);
 		try {
 			await loadUsage();
-			setNotice("日志已刷新");
+			pushNotice("success", "日志已刷新");
 		} catch (error) {
-			setNotice((error as Error).message);
+			pushNotice("error", (error as Error).message);
+		} finally {
+			endAction(actionKey);
 		}
-	}, [loadUsage]);
+	}, [endAction, isActionPending, loadUsage, pushNotice, startAction]);
 
 	const filteredSites = useMemo(
 		() => filterSites(data.sites, siteSearch),
@@ -736,6 +1282,10 @@ const App = () => {
 		const start = (tokenPage - 1) * tokenPageSize;
 		return data.tokens.slice(start, start + tokenPageSize);
 	}, [data.tokens, tokenPage, tokenPageSize]);
+	const usageTotalPages = useMemo(
+		() => Math.max(1, Math.ceil(usageTotal / usagePageSize)),
+		[usagePageSize, usageTotal],
+	);
 
 	useEffect(() => {
 		setSitePage((prev) => Math.min(prev, siteTotalPages));
@@ -749,6 +1299,10 @@ const App = () => {
 		setTokenPage((prev) => Math.min(prev, tokenTotalPages));
 	}, [tokenTotalPages]);
 
+	useEffect(() => {
+		setUsagePage((prev) => Math.min(prev, usageTotalPages));
+	}, [usageTotalPages]);
+
 	const activeLabel = useMemo(
 		() => tabs.find((tab) => tab.id === activeTab)?.label ?? "管理台",
 		[activeTab],
@@ -757,13 +1311,27 @@ const App = () => {
 	const renderContent = () => {
 		if (loading) {
 			return (
-				<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
-					加载中...
+				<div class="animate-fade-up rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
+					<div class="flex items-center gap-3 text-sm text-stone-500">
+						<span class="h-2.5 w-2.5 animate-pulse rounded-full bg-amber-400" />
+						正在加载数据...
+					</div>
+					<div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+						<div class="h-20 rounded-xl bg-stone-100/80" />
+						<div class="h-20 rounded-xl bg-stone-100/60" />
+						<div class="h-20 rounded-xl bg-stone-100/70" />
+					</div>
 				</div>
 			);
 		}
 		if (activeTab === "dashboard") {
-			return <DashboardView dashboard={data.dashboard} />;
+			return (
+				<DashboardView
+					dashboard={data.dashboard}
+					isRefreshing={isActionPending(buildActionKey("dashboard:refresh"))}
+					onRefresh={handleDashboardRefresh}
+				/>
+			);
 		}
 		if (activeTab === "channels") {
 			return (
@@ -780,13 +1348,14 @@ const App = () => {
 					lastRun={checkinLastRun}
 					siteSearch={siteSearch}
 					siteSort={siteSort}
+					isActionPending={isActionPending}
 					onCreate={openSiteCreate}
 					onCloseModal={closeSiteModal}
 					onEdit={startSiteEdit}
 					onSubmit={handleSiteSubmit}
 					onTest={handleSiteTest}
 					onToggle={handleSiteToggle}
-					onDelete={handleSiteDelete}
+					onDelete={requestSiteDelete}
 					onPageChange={handleSitePageChange}
 					onPageSizeChange={handleSitePageSizeChange}
 					onSearchChange={handleSiteSearchChange}
@@ -809,25 +1378,50 @@ const App = () => {
 					tokenTotal={tokenTotal}
 					tokenTotalPages={tokenTotalPages}
 					isTokenModalOpen={isTokenModalOpen}
+					isActionPending={isActionPending}
+					sites={data.sites}
 					onCreate={openTokenCreate}
 					onCloseModal={closeTokenModal}
 					onPageChange={handleTokenPageChange}
 					onPageSizeChange={handleTokenPageSizeChange}
+					tokenForm={tokenForm}
+					editingToken={editingToken}
 					onSubmit={handleTokenSubmit}
+					onFormChange={handleTokenFormChange}
+					onEdit={openTokenEdit}
 					onReveal={handleTokenReveal}
 					onToggle={handleTokenToggle}
-					onDelete={handleTokenDelete}
+					onDelete={requestTokenDelete}
 				/>
 			);
 		}
 		if (activeTab === "usage") {
-			return <UsageView usage={data.usage} onRefresh={handleUsageRefresh} />;
+			return (
+				<UsageView
+					usage={data.usage}
+					total={usageTotal}
+					page={usagePage}
+					pageSize={usagePageSize}
+					filters={usageFilters}
+					isRefreshing={
+						isActionPending(buildActionKey("usage:refresh")) ||
+						isActionPending(buildActionKey("usage:load"))
+					}
+					onRefresh={handleUsageRefresh}
+					onPageChange={handleUsagePageChange}
+					onPageSizeChange={handleUsagePageSizeChange}
+					onFiltersChange={handleUsageFiltersChange}
+					onSearch={handleUsageSearch}
+					onClear={handleUsageClear}
+				/>
+			);
 		}
 		if (activeTab === "settings") {
 			return (
 				<SettingsView
 					settingsForm={settingsForm}
 					adminPasswordSet={data.settings?.admin_password_set ?? false}
+					isSaving={isActionPending(buildActionKey("settings:submit"))}
 					onSubmit={handleSettingsSubmit}
 					onFormChange={handleSettingsFormChange}
 				/>
@@ -841,7 +1435,8 @@ const App = () => {
 	};
 
 	return (
-		<div class="min-h-screen bg-linear-to-b from-white via-stone-50 to-stone-100 font-['IBM_Plex_Sans'] text-stone-900 antialiased">
+		<div class="relative min-h-screen font-['IBM_Plex_Sans'] text-stone-900 antialiased">
+			<div aria-hidden="true" class="app-background" />
 			{token ? (
 				<AppLayout
 					tabs={tabs}
@@ -849,13 +1444,74 @@ const App = () => {
 					activeLabel={activeLabel}
 					token={token}
 					notice={notice}
+					onDismissNotice={dismissNotice}
 					onTabChange={handleTabChange}
 					onLogout={handleLogout}
 				>
 					{renderContent()}
 				</AppLayout>
 			) : (
-				<LoginView notice={notice} onSubmit={handleLogin} />
+				<LoginView
+					isSubmitting={isActionPending(buildActionKey("login:submit"))}
+					notice={notice}
+					onSubmit={handleLogin}
+				/>
+			)}
+			{confirmState && (
+				<div
+					class="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 px-4 py-8"
+					onClick={closeConfirm}
+				>
+					<div
+						aria-labelledby="confirm-title"
+						aria-modal="true"
+						class="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl"
+						role="dialog"
+						onClick={(event) => event.stopPropagation()}
+					>
+						<div class="flex items-start justify-between gap-4">
+							<div>
+								<h3
+									class="font-['Space_Grotesk'] text-lg tracking-tight text-stone-900"
+									id="confirm-title"
+								>
+									{confirmState.title}
+								</h3>
+								<p class="mt-2 text-sm text-stone-600">
+									{confirmState.message}
+								</p>
+							</div>
+							<button
+								class="h-8 rounded-full border border-stone-200 bg-stone-50 px-3 text-xs font-semibold text-stone-500 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+								type="button"
+								onClick={closeConfirm}
+							>
+								关闭
+							</button>
+						</div>
+						<div class="mt-6 flex flex-wrap items-center justify-end gap-2">
+							<button
+								class="h-10 rounded-full border border-stone-200 bg-white px-4 text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+								type="button"
+								onClick={closeConfirm}
+							>
+								取消
+							</button>
+							<button
+								class={`h-10 rounded-full px-5 text-xs font-semibold text-white transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 ${
+									confirmState.tone === "error"
+										? "bg-rose-600 hover:-translate-y-0.5 hover:shadow-lg"
+										: "bg-stone-900 hover:-translate-y-0.5 hover:shadow-lg"
+								}`}
+								type="button"
+								disabled={confirmPending}
+								onClick={handleConfirm}
+							>
+								{confirmPending ? "处理中..." : confirmState.confirmLabel ?? "确认"}
+							</button>
+						</div>
+					</div>
+				</div>
 			)}
 		</div>
 	);

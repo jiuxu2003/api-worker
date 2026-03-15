@@ -2,6 +2,8 @@ import type { DashboardData } from "../core/types";
 
 type DashboardViewProps = {
 	dashboard: DashboardData | null;
+	onRefresh: () => void;
+	isRefreshing: boolean;
 };
 
 /**
@@ -13,23 +15,83 @@ type DashboardViewProps = {
  * Returns:
  *   Dashboard JSX element.
  */
-export const DashboardView = ({ dashboard }: DashboardViewProps) => {
+export const DashboardView = ({
+	dashboard,
+	onRefresh,
+	isRefreshing,
+}: DashboardViewProps) => {
 	if (!dashboard) {
 		return (
 			<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
-				暂无数据
+				<div class="flex flex-wrap items-center justify-between gap-3">
+					<div>
+						<h3 class="mb-1 font-['Space_Grotesk'] text-lg tracking-tight text-stone-900">
+							数据面板
+						</h3>
+						<p class="text-xs text-stone-500">
+							查看请求量、消耗与性能趋势。
+						</p>
+					</div>
+					<button
+						class="h-9 rounded-full border border-stone-200 bg-stone-100 px-4 text-xs font-semibold text-stone-700 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+						type="button"
+						disabled={isRefreshing}
+						onClick={onRefresh}
+					>
+						{isRefreshing ? "刷新中..." : "刷新"}
+					</button>
+				</div>
+				<div class="mt-6 rounded-xl border border-dashed border-stone-200 bg-stone-50 px-4 py-8 text-center text-sm text-stone-500">
+					暂无数据，请先产生调用或刷新面板。
+					<div class="mt-4 flex justify-center">
+						<button
+							class="h-9 rounded-full bg-stone-900 px-4 text-xs font-semibold text-white transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+							type="button"
+							onClick={onRefresh}
+							disabled={isRefreshing}
+						>
+							立即刷新
+						</button>
+					</div>
+				</div>
 			</div>
 		);
 	}
+	const totalRequests = dashboard.summary.total_requests;
+	const totalErrors = dashboard.summary.total_errors;
 	const errorRate = dashboard.summary.total_requests
 		? Math.round(
 				(dashboard.summary.total_errors / dashboard.summary.total_requests) *
 					100,
 			)
 		: 0;
+	const successRate = totalRequests
+		? Math.max(0, Math.round(((totalRequests - totalErrors) / totalRequests) * 100))
+		: 0;
+	const avgTokensPerRequest = totalRequests
+		? Math.round(dashboard.summary.total_tokens / totalRequests)
+		: 0;
 	return (
-		<div class="space-y-5">
-			<div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
+		<div class="animate-fade-up space-y-5">
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<div>
+					<h3 class="mb-1 font-['Space_Grotesk'] text-lg tracking-tight text-stone-900">
+						数据面板
+					</h3>
+					<p class="text-xs text-stone-500">
+						快速掌握请求表现、性能与消耗概况。
+					</p>
+				</div>
+				<button
+					class="h-9 rounded-full border border-stone-200 bg-stone-100 px-4 text-xs font-semibold text-stone-700 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+					type="button"
+					disabled={isRefreshing}
+					onClick={onRefresh}
+				>
+					{isRefreshing ? "刷新中..." : "刷新"}
+				</button>
+			</div>
+			<div class="grid grid-cols-1 gap-5 lg:grid-cols-4">
 				<div class="flex flex-col gap-1.5 rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
 					<span class="rounded-full bg-stone-100 px-2.5 py-1 text-xs text-stone-500">
 						总请求
@@ -54,11 +116,24 @@ export const DashboardView = ({ dashboard }: DashboardViewProps) => {
 				</div>
 				<div class="flex flex-col gap-1.5 rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
 					<span class="rounded-full bg-stone-100 px-2.5 py-1 text-xs text-stone-500">
-						错误率
+						成功率
 					</span>
-					<div class="text-2xl font-semibold text-stone-900">{errorRate}%</div>
+					<div class="text-2xl font-semibold text-stone-900">
+						{successRate}%
+					</div>
 					<span class="font-['Space_Grotesk'] text-xs text-stone-500">
-						平均延迟 {Math.round(dashboard.summary.avg_latency)}ms
+						错误率 {errorRate}%
+					</span>
+				</div>
+				<div class="flex flex-col gap-1.5 rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
+					<span class="rounded-full bg-stone-100 px-2.5 py-1 text-xs text-stone-500">
+						单次消耗
+					</span>
+					<div class="text-2xl font-semibold text-stone-900">
+						{avgTokensPerRequest}
+					</div>
+					<span class="font-['Space_Grotesk'] text-xs text-stone-500">
+						平均 {Math.round(dashboard.summary.avg_latency)}ms 延迟
 					</span>
 				</div>
 			</div>

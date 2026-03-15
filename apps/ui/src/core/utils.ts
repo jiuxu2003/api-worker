@@ -1,3 +1,5 @@
+import type { UsageLog } from "./types";
+
 /**
  * Formats a datetime string for display.
  *
@@ -22,6 +24,87 @@ export const formatDateTime = (value?: string | null) => {
 	)} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(
 		date.getSeconds(),
 	)}`;
+};
+
+const formatInTimeZone = (
+	value: string | null | undefined,
+	timeZone: string,
+	parts: Array<"year" | "month" | "day" | "hour" | "minute" | "second">,
+	separator: { date: string },
+): string => {
+	if (!value) {
+		return "-";
+	}
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) {
+		return "-";
+	}
+	const formatter = new Intl.DateTimeFormat("en-CA", {
+		timeZone,
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		second: "2-digit",
+		hour12: false,
+	});
+	const dateParts = formatter.formatToParts(date);
+	const pick = (type: string) =>
+		dateParts.find((part) => part.type === type)?.value ?? "00";
+	const dateText = `${pick("year")}-${pick("month")}-${pick("day")}`;
+	const timeText = parts.includes("second")
+		? `${pick("hour")}:${pick("minute")}:${pick("second")}`
+		: `${pick("hour")}:${pick("minute")}`;
+	return `${dateText}${separator.date}${timeText}`.trim();
+};
+
+export const formatChinaDateTime = (value?: string | null) =>
+	formatInTimeZone(
+		value,
+		"Asia/Shanghai",
+		["year", "month", "day", "hour", "minute", "second"],
+		{ date: " " },
+	);
+
+export const toChinaDateTimeInput = (value?: string | null) => {
+	if (!value) {
+		return "";
+	}
+	const formatted = formatInTimeZone(
+		value,
+		"Asia/Shanghai",
+		["year", "month", "day", "hour", "minute"],
+		{ date: "T" },
+	);
+	return formatted === "-" ? "" : formatted;
+};
+
+export const toChinaIsoFromInput = (value?: string | null) => {
+	if (!value) {
+		return null;
+	}
+	const raw = value.trim();
+	if (!raw) {
+		return null;
+	}
+	const [datePart, timePart] = raw.split("T");
+	if (!datePart || !timePart) {
+		return null;
+	}
+	const [year, month, day] = datePart.split("-").map(Number);
+	const [hour, minute] = timePart.split(":").map(Number);
+	if (
+		Number.isNaN(year) ||
+		Number.isNaN(month) ||
+		Number.isNaN(day) ||
+		Number.isNaN(hour) ||
+		Number.isNaN(minute)
+	) {
+		return null;
+	}
+	const utcMillis = Date.UTC(year, month - 1, day, hour - 8, minute);
+	return new Date(utcMillis).toISOString();
 };
 
 /**
@@ -75,4 +158,22 @@ export const buildPageItems = (current: number, total: number): PageItem[] => {
 		}
 		return true;
 	});
+};
+
+export type UsageStatusDetail = {
+	label: string;
+	tone: "success" | "error";
+};
+
+export const buildUsageStatusDetail = (log: UsageLog): UsageStatusDetail => {
+	const statusCode = log.upstream_status ?? null;
+	const isOk = log.status === "ok";
+	const label =
+		statusCode !== null && statusCode !== undefined
+			? String(statusCode)
+			: "-";
+	return {
+		label,
+		tone: isOk ? "success" : "error",
+	};
 };

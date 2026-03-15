@@ -1,4 +1,10 @@
-import type { AdminData, SettingsForm, SiteForm, TabItem } from "./types";
+import type {
+	AdminData,
+	SettingsForm,
+	SiteForm,
+	TabItem,
+	TokenForm,
+} from "./types";
 
 export const apiBase = import.meta.env.VITE_API_BASE ?? "";
 
@@ -43,4 +49,13 @@ export const initialSettingsForm: SettingsForm = {
 	session_ttl_hours: "12",
 	admin_password: "",
 	checkin_schedule_time: "00:10",
+	model_failure_cooldown_minutes: "10",
+};
+
+export const initialTokenForm: TokenForm = {
+	name: "",
+	quota_total: "",
+	status: "active",
+	expires_at: "",
+	allowed_channels: [],
 };

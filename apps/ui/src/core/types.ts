@@ -41,6 +41,8 @@ export type Token = {
 	quota_total: number | null;
 	quota_used: number;
 	status: string;
+	allowed_channels?: string[] | null;
+	expires_at?: string | null;
 	created_at?: string | null;
 	updated_at?: string | null;
 };
@@ -60,7 +62,24 @@ export type UsageLog = {
 	stream?: boolean | number | null;
 	reasoning_effort?: string | number | null;
 	status: string;
+	upstream_status?: number | null;
+	error_code?: string | null;
+	error_message?: string | null;
 	created_at: string;
+};
+
+export type UsageQuery = {
+	channel: string;
+	token: string;
+	model: string;
+	status: string;
+};
+
+export type UsageResponse = {
+	logs: UsageLog[];
+	total: number;
+	limit: number;
+	offset: number;
 };
 
 export type DashboardData = {
@@ -81,6 +100,7 @@ export type Settings = {
 	session_ttl_hours: number;
 	admin_password_set?: boolean;
 	checkin_schedule_time?: string;
+	model_failure_cooldown_minutes?: number;
 };
 
 export type ModelChannel = {
@@ -139,6 +159,15 @@ export type SettingsForm = {
 	session_ttl_hours: string;
 	admin_password: string;
 	checkin_schedule_time: string;
+	model_failure_cooldown_minutes: string;
+};
+
+export type TokenForm = {
+	name: string;
+	quota_total: string;
+	status: string;
+	expires_at: string;
+	allowed_channels: string[];
 };
 
 export type CheckinResultItem = {
@@ -154,4 +183,12 @@ export type CheckinSummary = {
 	success: number;
 	failed: number;
 	skipped: number;
+};
+
+export type NoticeTone = "success" | "warning" | "error" | "info";
+
+export type NoticeMessage = {
+	tone: NoticeTone;
+	message: string;
+	id: number;
 };

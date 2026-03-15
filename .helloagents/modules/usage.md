@@ -9,11 +9,14 @@
 - `GET /api/usage` 使用日志查询
 
 ## 行为规范
-- 代理调用统一写入 `usage_logs`
+- 代理调用统一写入 `usage_logs`（含无可用渠道/冷却提前返回）
 - 保留天数可配置，查询时触发清理
 - 查询结果附带渠道与令牌名称
+- `GET /api/usage` 支持 `offset/limit` 分页并返回 `total`
+- 支持按 `model/channel/token/status` 关键词搜索（保留 `channel_id/token_id` 精确过滤）
 - usage_logs 记录输入/输出 tokens、首 token 延迟、流式标记与推理强度
 - 推理强度来自请求体 `reasoning` / `reasoning_effort` 字段
+- usage_logs 记录上游失败详情（status/code/message），日志列表仅展示状态码，详情弹窗仅展示元信息（不展示错误片段）
 
 ## 依赖关系
 - `usage_logs` 表

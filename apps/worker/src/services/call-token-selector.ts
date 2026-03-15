@@ -3,6 +3,7 @@ export type CallTokenItem = {
 	channel_id: string;
 	name: string;
 	api_key: string;
+	models_json?: string | null;
 };
 
 export const selectCallToken = (

@@ -1,6 +1,9 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
-import { listCallTokens } from "../services/channel-call-token-repo";
+import {
+	listCallTokens,
+	updateCallTokenModels,
+} from "../services/channel-call-token-repo";
 import { modelsToJson } from "../services/channel-models";
 import {
 	channelExists,
@@ -195,6 +198,14 @@ channels.post("/:id/test", async (c) => {
 			elapsed: summary.elapsed,
 		});
 		return jsonError(c, 502, "channel_unreachable", "channel_unreachable");
+	}
+
+	const tokenIdSet = new Set(callTokenRows.map((row) => row.id));
+	for (const item of summary.items) {
+		if (!item.ok || !item.tokenId || !tokenIdSet.has(item.tokenId)) {
+			continue;
+		}
+		await updateCallTokenModels(c.env.DB, item.tokenId, item.models, nowIso());
 	}
 
 	const models = summary.models.map((id) => ({ id }));
