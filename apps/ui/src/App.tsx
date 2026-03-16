@@ -35,11 +35,15 @@ import type {
 	SiteType,
 	TabId,
 	Token,
+	TokenForm,
 	UsageQuery,
 	UsageResponse,
-	TokenForm,
 } from "./core/types";
-import { toChinaDateTimeInput, toChinaIsoFromInput, toggleStatus } from "./core/utils";
+import {
+	toChinaDateTimeInput,
+	toChinaIsoFromInput,
+	toggleStatus,
+} from "./core/utils";
 import { AppLayout } from "./features/AppLayout";
 import { DashboardView } from "./features/DashboardView";
 import { LoginView } from "./features/LoginView";
@@ -136,15 +140,13 @@ const App = () => {
 	const [tokenPage, setTokenPage] = useState(1);
 	const [tokenPageSize, setTokenPageSize] = useState(10);
 	const [editingToken, setEditingToken] = useState<Token | null>(null);
-	const [tokenForm, setTokenForm] =
-		useState<TokenForm>(initialTokenForm);
+	const [tokenForm, setTokenForm] = useState<TokenForm>(initialTokenForm);
 	const [usagePage, setUsagePage] = useState(1);
 	const [usagePageSize, setUsagePageSize] = useState(50);
 	const [usageTotal, setUsageTotal] = useState(0);
 	const [usageFilters, setUsageFilters] =
 		useState<UsageQuery>(initialUsageQuery);
-	const [usageQuery, setUsageQuery] =
-		useState<UsageQuery>(initialUsageQuery);
+	const [usageQuery, setUsageQuery] = useState<UsageQuery>(initialUsageQuery);
 	const [editingSite, setEditingSite] = useState<Site | null>(null);
 	const [siteForm, setSiteForm] = useState<SiteForm>(() => ({
 		...initialSiteForm,
@@ -169,9 +171,12 @@ const App = () => {
 		}
 	}, []);
 
-	const pushNotice = useCallback((tone: NoticeTone, message: string) => {
-		setNotice({ tone, message, id: Date.now() });
-	}, []);
+	const pushNotice = useCallback(
+		(tone: NoticeTone, message: string, durationMs?: number) => {
+			setNotice({ tone, message, id: Date.now(), durationMs });
+		},
+		[],
+	);
 
 	const dismissNotice = useCallback(() => {
 		setNotice(null);
@@ -181,9 +186,10 @@ const App = () => {
 		if (!notice) {
 			return;
 		}
+		const durationMs = notice.durationMs ?? 4500;
 		const timer = window.setTimeout(() => {
 			setNotice(null);
-		}, 4500);
+		}, durationMs);
 		return () => window.clearTimeout(timer);
 	}, [notice]);
 
@@ -524,14 +530,7 @@ const App = () => {
 				endAction(actionKey);
 			}
 		},
-		[
-			endAction,
-			isActionPending,
-			loadUsage,
-			pushNotice,
-			startAction,
-			usagePage,
-		],
+		[endAction, isActionPending, loadUsage, pushNotice, startAction, usagePage],
 	);
 
 	const handleUsagePageSizeChange = useCallback(
@@ -554,12 +553,9 @@ const App = () => {
 		[endAction, isActionPending, loadUsage, pushNotice, startAction],
 	);
 
-	const handleUsageFiltersChange = useCallback(
-		(patch: Partial<UsageQuery>) => {
-			setUsageFilters((prev) => ({ ...prev, ...patch }));
-		},
-		[],
-	);
+	const handleUsageFiltersChange = useCallback((patch: Partial<UsageQuery>) => {
+		setUsageFilters((prev) => ({ ...prev, ...patch }));
+	}, []);
 
 	const handleUsageSearch = useCallback(async () => {
 		const actionKey = buildActionKey("usage:load");
@@ -613,15 +609,18 @@ const App = () => {
 		}
 	}, [endAction, isActionPending, loadUsage, pushNotice, startAction]);
 
-	const handleTabChange = useCallback((tabId: TabId) => {
-		const nextPath = tabToPath[tabId];
-		const normalized = normalizePath(window.location.pathname);
-		if (normalized !== nextPath) {
-			history.pushState(null, "", nextPath);
-		}
-		dismissNotice();
-		setActiveTab(tabId);
-	}, [dismissNotice]);
+	const handleTabChange = useCallback(
+		(tabId: TabId) => {
+			const nextPath = tabToPath[tabId];
+			const normalized = normalizePath(window.location.pathname);
+			if (normalized !== nextPath) {
+				history.pushState(null, "", nextPath);
+			}
+			dismissNotice();
+			setActiveTab(tabId);
+		},
+		[dismissNotice],
+	);
 
 	const closeSiteModal = useCallback(() => {
 		setEditingSite(null);
@@ -643,48 +642,51 @@ const App = () => {
 		dismissNotice();
 	}, [dismissNotice]);
 
-	const startSiteEdit = useCallback((site: Site) => {
-		setEditingSite(site);
-		const callTokens =
-			site.call_tokens && site.call_tokens.length > 0
-				? site.call_tokens
-				: site.api_key
-					? [
+	const startSiteEdit = useCallback(
+		(site: Site) => {
+			setEditingSite(site);
+			const callTokens =
+				site.call_tokens && site.call_tokens.length > 0
+					? site.call_tokens
+					: site.api_key
+						? [
+								{
+									id: "",
+									name: "主调用令牌",
+									api_key: site.api_key,
+								},
+							]
+						: [];
+			const tokenForms =
+				callTokens.length > 0
+					? callTokens.map((token) => ({
+							id: token.id,
+							name: token.name,
+							api_key: token.api_key,
+						}))
+					: [
 							{
-								id: "",
 								name: "主调用令牌",
-								api_key: site.api_key,
+								api_key: "",
 							},
-						]
-					: [];
-		const tokenForms =
-			callTokens.length > 0
-				? callTokens.map((token) => ({
-						id: token.id,
-						name: token.name,
-						api_key: token.api_key,
-					}))
-				: [
-						{
-							name: "主调用令牌",
-							api_key: "",
-						},
-					];
-		setSiteForm({
-			name: site.name ?? "",
-			base_url: site.base_url ?? "",
-			weight: site.weight ?? 1,
-			status: site.status ?? "active",
-			site_type: site.site_type ?? "new-api",
-			checkin_url: site.checkin_url ?? "",
-			system_token: site.system_token ?? "",
-			system_userid: site.system_userid ?? "",
-			checkin_enabled: Boolean(site.checkin_enabled ?? false),
-			call_tokens: tokenForms,
-		});
-		setSiteModalOpen(true);
-		dismissNotice();
-	}, [dismissNotice]);
+						];
+			setSiteForm({
+				name: site.name ?? "",
+				base_url: site.base_url ?? "",
+				weight: site.weight ?? 1,
+				status: site.status ?? "active",
+				site_type: site.site_type ?? "new-api",
+				checkin_url: site.checkin_url ?? "",
+				system_token: site.system_token ?? "",
+				system_userid: site.system_userid ?? "",
+				checkin_enabled: Boolean(site.checkin_enabled ?? false),
+				call_tokens: tokenForms,
+			});
+			setSiteModalOpen(true);
+			dismissNotice();
+		},
+		[dismissNotice],
+	);
 
 	const closeTokenModal = useCallback(() => {
 		setTokenModalOpen(false);
@@ -692,21 +694,24 @@ const App = () => {
 		setTokenForm({ ...initialTokenForm });
 	}, []);
 
-	const openTokenEdit = useCallback((tokenItem: Token) => {
-		setEditingToken(tokenItem);
-		setTokenForm({
-			name: tokenItem.name ?? "",
-			quota_total:
-				tokenItem.quota_total === null || tokenItem.quota_total === undefined
-					? ""
-					: String(tokenItem.quota_total),
-			status: tokenItem.status ?? "active",
-			expires_at: toChinaDateTimeInput(tokenItem.expires_at ?? null),
-			allowed_channels: tokenItem.allowed_channels ?? [],
-		});
-		setTokenModalOpen(true);
-		dismissNotice();
-	}, [dismissNotice]);
+	const openTokenEdit = useCallback(
+		(tokenItem: Token) => {
+			setEditingToken(tokenItem);
+			setTokenForm({
+				name: tokenItem.name ?? "",
+				quota_total:
+					tokenItem.quota_total === null || tokenItem.quota_total === undefined
+						? ""
+						: String(tokenItem.quota_total),
+				status: tokenItem.status ?? "active",
+				expires_at: toChinaDateTimeInput(tokenItem.expires_at ?? null),
+				allowed_channels: tokenItem.allowed_channels ?? [],
+			});
+			setTokenModalOpen(true);
+			dismissNotice();
+		},
+		[dismissNotice],
+	);
 
 	const handleSiteTest = useCallback(
 		async (id: string) => {
@@ -775,7 +780,10 @@ const App = () => {
 			const summary = summarizeSiteTests(results);
 			const testedTotal = summary.success + summary.failed;
 			if (testedTotal === 0) {
-				pushNotice("info", `已跳过 ${summary.skipped} 个禁用站点，暂无可测试站点。`);
+				pushNotice(
+					"info",
+					`已跳过 ${summary.skipped} 个禁用站点，暂无可测试站点。`,
+				);
 				return;
 			}
 			let message =
@@ -789,7 +797,15 @@ const App = () => {
 		} finally {
 			endAction(actionKey);
 		}
-	}, [apiFetch, data.sites, endAction, isActionPending, loadSites, pushNotice, startAction]);
+	}, [
+		apiFetch,
+		data.sites,
+		endAction,
+		isActionPending,
+		loadSites,
+		pushNotice,
+		startAction,
+	]);
 
 	const handleSiteSubmit = useCallback(
 		async (event: Event) => {
@@ -906,8 +922,7 @@ const App = () => {
 					return;
 				}
 				const quotaInput = tokenForm.quota_total.trim();
-				const quotaTotal =
-					quotaInput.length === 0 ? null : Number(quotaInput);
+				const quotaTotal = quotaInput.length === 0 ? null : Number(quotaInput);
 				if (quotaInput.length > 0 && Number.isNaN(quotaTotal)) {
 					pushNotice("warning", "额度需为数字");
 					return;
@@ -965,23 +980,23 @@ const App = () => {
 			} finally {
 				endAction(actionKey);
 			}
-	},
-	[
-		apiFetch,
-		editingToken,
-		endAction,
-		initialTokenForm,
-		isActionPending,
-		loadTokens,
-		pushNotice,
-		startAction,
-		tokenForm.expires_at,
-		tokenForm.allowed_channels,
-		tokenForm.name,
-		tokenForm.quota_total,
-		tokenForm.status,
-	],
-);
+		},
+		[
+			apiFetch,
+			editingToken,
+			endAction,
+			initialTokenForm,
+			isActionPending,
+			loadTokens,
+			pushNotice,
+			startAction,
+			tokenForm.expires_at,
+			tokenForm.allowed_channels,
+			tokenForm.name,
+			tokenForm.quota_total,
+			tokenForm.status,
+		],
+	);
 
 	const handleSettingsSubmit = useCallback(
 		async (event: Event) => {
@@ -1004,10 +1019,7 @@ const App = () => {
 				pushNotice("warning", "请填写有效的保留天数与会话时长");
 				return;
 			}
-			if (
-				Number.isNaN(failureCooldownMinutes) ||
-				failureCooldownMinutes < 1
-			) {
+			if (Number.isNaN(failureCooldownMinutes) || failureCooldownMinutes < 1) {
 				pushNotice("warning", "失败冷却需为正整数");
 				return;
 			}
@@ -1238,7 +1250,14 @@ const App = () => {
 		} finally {
 			endAction(actionKey);
 		}
-	}, [apiFetch, endAction, isActionPending, loadSites, pushNotice, startAction]);
+	}, [
+		apiFetch,
+		endAction,
+		isActionPending,
+		loadSites,
+		pushNotice,
+		startAction,
+	]);
 
 	const handleUsageRefresh = useCallback(async () => {
 		const actionKey = buildActionKey("usage:refresh");
@@ -1311,15 +1330,15 @@ const App = () => {
 	const renderContent = () => {
 		if (loading) {
 			return (
-				<div class="animate-fade-up rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
-					<div class="flex items-center gap-3 text-sm text-stone-500">
-						<span class="h-2.5 w-2.5 animate-pulse rounded-full bg-amber-400" />
+				<div class="app-card animate-fade-up p-5">
+					<div class="flex items-center gap-3 text-sm text-[color:var(--app-ink-muted)]">
+						<span class="h-2.5 w-2.5 animate-pulse rounded-full bg-[color:var(--app-accent)]" />
 						正在加载数据...
 					</div>
 					<div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-						<div class="h-20 rounded-xl bg-stone-100/80" />
-						<div class="h-20 rounded-xl bg-stone-100/60" />
-						<div class="h-20 rounded-xl bg-stone-100/70" />
+						<div class="h-20 rounded-xl bg-white/70" />
+						<div class="h-20 rounded-xl bg-white/60" />
+						<div class="h-20 rounded-xl bg-white/80" />
 					</div>
 				</div>
 			);
@@ -1427,15 +1446,11 @@ const App = () => {
 				/>
 			);
 		}
-		return (
-			<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
-				未知模块
-			</div>
-		);
+		return <div class="app-card p-5">未知模块</div>;
 	};
 
 	return (
-		<div class="relative min-h-screen font-['IBM_Plex_Sans'] text-stone-900 antialiased">
+		<div class="app-shell relative min-h-screen antialiased">
 			<div aria-hidden="true" class="app-background" />
 			{token ? (
 				<AppLayout
@@ -1458,57 +1473,60 @@ const App = () => {
 				/>
 			)}
 			{confirmState && (
-				<div
-					class="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 px-4 py-8"
-					onClick={closeConfirm}
-				>
-					<div
-						aria-labelledby="confirm-title"
-						aria-modal="true"
-						class="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-2xl"
-						role="dialog"
-						onClick={(event) => event.stopPropagation()}
-					>
-						<div class="flex items-start justify-between gap-4">
-							<div>
-								<h3
-									class="font-['Space_Grotesk'] text-lg tracking-tight text-stone-900"
-									id="confirm-title"
+				<div class="fixed inset-0 z-50">
+					<button
+						aria-label="关闭弹窗"
+						class="absolute inset-0 bg-slate-950/40"
+						type="button"
+						onClick={closeConfirm}
+					/>
+					<div class="relative z-10 flex min-h-screen items-center justify-center px-4 py-8">
+						<div
+							aria-labelledby="confirm-title"
+							aria-modal="true"
+							class="app-card w-full max-w-md p-6"
+							role="dialog"
+						>
+							<div class="flex items-start justify-between gap-4">
+								<div>
+									<h3 class="app-title text-lg" id="confirm-title">
+										{confirmState.title}
+									</h3>
+									<p class="mt-2 text-sm text-[color:var(--app-ink-muted)]">
+										{confirmState.message}
+									</p>
+								</div>
+								<button
+									class="app-button app-focus"
+									type="button"
+									onClick={closeConfirm}
 								>
-									{confirmState.title}
-								</h3>
-								<p class="mt-2 text-sm text-stone-600">
-									{confirmState.message}
-								</p>
+									关闭
+								</button>
 							</div>
-							<button
-								class="h-8 rounded-full border border-stone-200 bg-stone-50 px-3 text-xs font-semibold text-stone-500 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-								type="button"
-								onClick={closeConfirm}
-							>
-								关闭
-							</button>
-						</div>
-						<div class="mt-6 flex flex-wrap items-center justify-end gap-2">
-							<button
-								class="h-10 rounded-full border border-stone-200 bg-white px-4 text-xs font-semibold text-stone-600 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-								type="button"
-								onClick={closeConfirm}
-							>
-								取消
-							</button>
-							<button
-								class={`h-10 rounded-full px-5 text-xs font-semibold text-white transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 ${
-									confirmState.tone === "error"
-										? "bg-rose-600 hover:-translate-y-0.5 hover:shadow-lg"
-										: "bg-stone-900 hover:-translate-y-0.5 hover:shadow-lg"
-								}`}
-								type="button"
-								disabled={confirmPending}
-								onClick={handleConfirm}
-							>
-								{confirmPending ? "处理中..." : confirmState.confirmLabel ?? "确认"}
-							</button>
+							<div class="mt-6 flex flex-wrap items-center justify-end gap-2">
+								<button
+									class="app-button app-focus"
+									type="button"
+									onClick={closeConfirm}
+								>
+									取消
+								</button>
+								<button
+									class={`app-button app-focus ${
+										confirmState.tone === "error"
+											? "app-button-danger"
+											: "app-button-primary"
+									}`}
+									type="button"
+									disabled={confirmPending}
+									onClick={handleConfirm}
+								>
+									{confirmPending
+										? "处理中..."
+										: (confirmState.confirmLabel ?? "确认")}
+								</button>
+							</div>
 						</div>
 					</div>
 				</div>

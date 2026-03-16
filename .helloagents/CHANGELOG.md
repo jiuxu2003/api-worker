@@ -4,6 +4,9 @@
 
 ### 变更
 
+- **[admin-ui/dashboard]**: Dashboard 样板页引入 Apple 风主题（bento grid 卡片/表格/按钮重绘）
+  - 方案: [202603152243_apple-ui-sample-dashboard](archive/2026-03/202603152243_apple-ui-sample-dashboard/)
+  - 文件: apps/ui/src/features/DashboardView.tsx, apps/ui/src/styles.css, .helloagents/modules/admin-ui.md, .helloagents/modules/dashboard.md
 - **[sites]**: 站点类型接口字段由 claude 改为 Anthropic，并新增数据迁移脚本
   - 类型: 变更（无方案包）
   - 文件: apps/worker/src/services/site-metadata.ts, apps/worker/src/routes/sites.ts, apps/worker/src/services/channel-metadata.ts, apps/worker/src/services/provider-transform.ts, apps/worker/src/routes/proxy.ts, apps/worker/migrations/0003_rename_claude_anthropic.sql, apps/ui/src/core/types.ts, apps/ui/src/core/sites.ts, apps/ui/src/features/SitesView.tsx, apps/ui/src/App.tsx, tests/worker/provider-transform.test.ts, tests/worker/channel-metadata.test.ts, helloagents/modules/admin-ui.md, helloagents/modules/sites.md, helloagents/modules/channels.md, helloagents/modules/proxy.md
@@ -170,6 +173,24 @@
 - **[proxy]**: 流式请求自动补 `stream_options.include_usage` 以获取 usage
   - 类型: 微调（无方案包）
   - 文件: apps/worker/src/routes/proxy.ts
+
+### 修复
+
+- **[admin-ui]**: Toast 通知固定右上并带进度条，弹窗改为全屏遮罩，筛选标题横排 — by lsy
+  - 方案: [202603160049_modal-toast-search-fixes](archive/2026-03/202603160049_modal-toast-search-fixes/)
+  - 决策: modal-toast-search-fixes#D001(通知统一为右上 Toast)
+
+## [0.9.6] - 2026-03-15
+
+### 修复
+- **[opencode-config]**: 配置 Gemini + Claude 模型并补充鉴权头 — by lsy
+  - 方案: [202603152216_opencode-models-gemini-claude](archive/2026-03/202603152216_opencode-models-gemini-claude/)
+
+## [0.9.5] - 2026-03-15
+
+### 修复
+- **[opencode-config]**: 更新 OpenCode 模型列表与默认模型 — by lsy
+  - 方案: [202603152138_opencode-model-config](archive/2026-03/202603152138_opencode-model-config/)
 
 ### 快速修改
 

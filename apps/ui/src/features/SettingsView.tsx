@@ -24,22 +24,20 @@ export const SettingsView = ({
 	onSubmit,
 	onFormChange,
 }: SettingsViewProps) => (
-	<div class="animate-fade-up rounded-2xl border border-stone-200 bg-white p-5 shadow-lg">
+	<div class="app-card animate-fade-up p-5">
 		<div class="mb-4 flex items-center justify-between">
-			<h3 class="mb-0 font-['Space_Grotesk'] text-lg tracking-tight text-stone-900">
-				系统设置
-			</h3>
+			<h3 class="app-title text-lg">系统设置</h3>
 		</div>
 		<form class="grid gap-3.5 lg:grid-cols-2" onSubmit={onSubmit}>
 			<div>
 				<label
-					class="mb-1.5 block text-xs uppercase tracking-widest text-stone-500"
+					class="mb-1.5 block text-xs uppercase tracking-widest text-[color:var(--app-ink-muted)]"
 					for="retention"
 				>
 					日志保留天数
 				</label>
 				<input
-					class="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
+					class="app-input app-focus"
 					id="retention"
 					name="log_retention_days"
 					type="number"
@@ -55,13 +53,13 @@ export const SettingsView = ({
 			</div>
 			<div>
 				<label
-					class="mb-1.5 block text-xs uppercase tracking-widest text-stone-500"
+					class="mb-1.5 block text-xs uppercase tracking-widest text-[color:var(--app-ink-muted)]"
 					for="session-ttl"
 				>
 					会话时长（小时）
 				</label>
 				<input
-					class="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
+					class="app-input app-focus"
 					id="session-ttl"
 					name="session_ttl_hours"
 					type="number"
@@ -77,13 +75,13 @@ export const SettingsView = ({
 			</div>
 			<div>
 				<label
-					class="mb-1.5 block text-xs uppercase tracking-widest text-stone-500"
+					class="mb-1.5 block text-xs uppercase tracking-widest text-[color:var(--app-ink-muted)]"
 					for="checkin-schedule-time"
 				>
 					签到时间（中国时间）
 				</label>
 				<input
-					class="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
+					class="app-input app-focus"
 					id="checkin-schedule-time"
 					name="checkin_schedule_time"
 					type="time"
@@ -98,13 +96,13 @@ export const SettingsView = ({
 			</div>
 			<div>
 				<label
-					class="mb-1.5 block text-xs uppercase tracking-widest text-stone-500"
+					class="mb-1.5 block text-xs uppercase tracking-widest text-[color:var(--app-ink-muted)]"
 					for="failure-cooldown"
 				>
 					失败冷却（分钟）
 				</label>
 				<input
-					class="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
+					class="app-input app-focus"
 					id="failure-cooldown"
 					name="model_failure_cooldown_minutes"
 					type="number"
@@ -117,19 +115,19 @@ export const SettingsView = ({
 						});
 					}}
 				/>
-				<p class="mt-1 text-xs text-stone-500">
+				<p class="mt-1 text-xs text-[color:var(--app-ink-muted)]">
 					同一模型失败后在该时间内跳过对应渠道。
 				</p>
 			</div>
 			<div class="lg:col-span-2">
 				<label
-					class="mb-1.5 block text-xs uppercase tracking-widest text-stone-500"
+					class="mb-1.5 block text-xs uppercase tracking-widest text-[color:var(--app-ink-muted)]"
 					for="admin-password"
 				>
 					管理员密码
 				</label>
 				<input
-					class="w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-200"
+					class="app-input app-focus"
 					id="admin-password"
 					name="admin_password"
 					type="password"
@@ -146,13 +144,13 @@ export const SettingsView = ({
 						});
 					}}
 				/>
-				<p class="mt-1 text-xs text-stone-500">
+				<p class="mt-1 text-xs text-[color:var(--app-ink-muted)]">
 					密码状态：{adminPasswordSet ? "已设置" : "未设置"}
 				</p>
 			</div>
 			<div class="flex items-end lg:col-span-2">
 				<button
-					class="h-11 rounded-lg bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+					class="app-button app-button-primary app-focus h-11 px-4 text-sm"
 					type="submit"
 					disabled={isSaving}
 				>

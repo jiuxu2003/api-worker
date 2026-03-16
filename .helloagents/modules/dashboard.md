@@ -10,6 +10,7 @@
 ## 行为规范
 - 以 `usage_logs` 为统计来源
 - 默认返回最近 30 条趋势数据
+- 前端 DashboardView 使用 `apple-demo` 样板主题（Apple 风格）
 
 ## 依赖关系
 - `usage_logs` 表

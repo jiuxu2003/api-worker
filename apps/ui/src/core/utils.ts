@@ -169,9 +169,7 @@ export const buildUsageStatusDetail = (log: UsageLog): UsageStatusDetail => {
 	const statusCode = log.upstream_status ?? null;
 	const isOk = log.status === "ok";
 	const label =
-		statusCode !== null && statusCode !== undefined
-			? String(statusCode)
-			: "-";
+		statusCode !== null && statusCode !== undefined ? String(statusCode) : "-";
 	return {
 		label,
 		tone: isOk ? "success" : "error",

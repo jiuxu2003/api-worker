@@ -33,10 +33,10 @@ export const AppLayout = ({
 	children,
 }: AppLayoutProps) => {
 	const noticeToneStyles: Record<NoticeMessage["tone"], string> = {
-		success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-		warning: "border-amber-200 bg-amber-50 text-amber-800",
-		error: "border-rose-200 bg-rose-50 text-rose-700",
-		info: "border-sky-200 bg-sky-50 text-sky-800",
+		success: "app-notice app-notice--success",
+		warning: "app-notice app-notice--warning",
+		error: "app-notice app-notice--error",
+		info: "app-notice app-notice--info",
 	};
 	const noticeToneLabel: Record<NoticeMessage["tone"], string> = {
 		success: "成功",
@@ -44,6 +44,7 @@ export const AppLayout = ({
 		error: "错误",
 		info: "信息",
 	};
+	const noticeDuration = notice?.durationMs ?? 4500;
 	const closeMobileNav = () => {
 		const toggle = document.querySelector<HTMLInputElement>("#app-nav-toggle");
 		if (toggle) {
@@ -60,18 +61,18 @@ export const AppLayout = ({
 	return (
 		<div class="relative flex min-h-screen flex-col lg:grid lg:grid-cols-[260px_1fr]">
 			<input class="peer hidden" id="app-nav-toggle" type="checkbox" />
-			<header class="flex items-center justify-between border-b border-stone-200 bg-white px-4 py-4 lg:hidden">
+			<header class="app-bar flex items-center justify-between px-4 py-4 lg:hidden">
 				<div class="flex items-center gap-3">
 					<button
 						aria-controls="app-nav-toggle"
 						aria-label="打开导航"
-						class="inline-flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-700 shadow-sm transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+						class="app-button app-focus inline-flex h-10 items-center gap-2 px-3 text-xs"
 						type="button"
 						onClick={toggleMobileNav}
 					>
 						<svg
 							aria-hidden="true"
-							class="h-4 w-4 text-stone-500"
+							class="h-4 w-4 text-[color:var(--app-ink-muted)]"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -96,18 +97,20 @@ export const AppLayout = ({
 						菜单
 					</button>
 					<div class="flex flex-col">
-						<span class="text-sm font-semibold text-stone-900">
+						<span class="text-sm font-semibold text-[color:var(--app-ink)]">
 							api-workers
 						</span>
-						<span class="text-xs text-stone-500">{activeLabel}</span>
+						<span class="text-xs text-[color:var(--app-ink-muted)]">
+							{activeLabel}
+						</span>
 					</div>
 				</div>
 				<div class="flex items-center gap-2">
-					<span class="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] uppercase tracking-widest text-stone-500">
+					<span class="app-badge text-[10px] uppercase tracking-widest">
 						{token ? "已登录" : "未登录"}
 					</span>
 					<button
-						class="h-9 rounded-full border border-stone-200 bg-transparent px-3 text-xs font-semibold text-stone-500 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+						class="app-button app-button-ghost app-focus h-9 px-3 text-xs"
 						type="button"
 						onClick={onLogout}
 					>
@@ -115,22 +118,18 @@ export const AppLayout = ({
 					</button>
 				</div>
 			</header>
-			<aside class="fixed inset-y-0 left-0 z-40 flex w-72 -translate-x-full flex-col overflow-y-auto border-r border-stone-200 bg-white px-5 py-8 shadow-xl transition-transform duration-300 ease-in-out peer-checked:translate-x-0 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:w-auto lg:translate-x-0 lg:shadow-none">
+			<aside class="app-sidebar fixed inset-y-0 left-0 z-40 flex w-72 -translate-x-full flex-col overflow-y-auto px-5 py-8 shadow-xl transition-transform duration-300 ease-in-out peer-checked:translate-x-0 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:w-auto lg:translate-x-0 lg:shadow-none">
 				<div class="mb-8 flex flex-col gap-1.5">
-					<h2 class="font-['Space_Grotesk'] text-lg font-semibold tracking-tight text-stone-900">
-						api-workers
-					</h2>
-					<span class="text-xs uppercase tracking-widest text-stone-500">
+					<h2 class="app-title text-lg">api-workers</h2>
+					<span class="text-xs uppercase tracking-widest text-[color:var(--app-ink-muted)]">
 						console
 					</span>
 				</div>
 				<nav class="flex flex-col gap-2.5">
 					{tabs.map((tab) => (
 						<button
-							class={`flex h-11 w-full items-center rounded-xl px-3.5 py-2.5 text-left text-sm font-medium transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
-								activeTab === tab.id
-									? "bg-stone-100 text-stone-900"
-									: "text-stone-500 hover:bg-stone-100 hover:text-stone-900"
+							class={`app-nav-button app-focus h-11 w-full text-left text-sm ${
+								activeTab === tab.id ? "app-nav-button--active" : ""
 							}`}
 							type="button"
 							onClick={() => {
@@ -146,19 +145,15 @@ export const AppLayout = ({
 			<main class="px-4 pt-5 pb-16 sm:px-10 sm:pt-8">
 				<div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div>
-						<h1 class="font-['Space_Grotesk'] text-2xl tracking-tight text-stone-900">
-							{activeLabel}
-						</h1>
-						<p class="text-sm text-stone-500">
+						<h1 class="app-title text-2xl">{activeLabel}</h1>
+						<p class="text-sm text-[color:var(--app-ink-muted)]">
 							集中管理渠道、模型、令牌与使用情况。
 						</p>
 					</div>
 					<div class="hidden items-center gap-3 lg:flex">
-						<span class="rounded-full bg-stone-100 px-2.5 py-1 text-xs text-stone-500">
-							{token ? "已登录" : "未登录"}
-						</span>
+						<span class="app-badge text-xs">{token ? "已登录" : "未登录"}</span>
 						<button
-							class="h-11 rounded-lg border border-stone-200 bg-transparent px-4 py-2.5 text-sm font-semibold text-stone-500 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
+							class="app-button app-button-ghost app-focus h-11 px-4 text-sm"
 							type="button"
 							onClick={onLogout}
 						>
@@ -166,34 +161,39 @@ export const AppLayout = ({
 						</button>
 					</div>
 				</div>
-				{notice && (
-					<div
-						class={`animate-fade-up mt-4 rounded-xl border px-4 py-3 text-sm ${noticeToneStyles[notice.tone]}`}
-					>
+				{children}
+			</main>
+			{notice && (
+				<output
+					aria-live="polite"
+					class="app-toast"
+					style={`--toast-duration: ${noticeDuration}ms`}
+				>
+					<div class={`app-toast-card ${noticeToneStyles[notice.tone]}`}>
 						<div class="flex items-start justify-between gap-3">
 							<div>
-								<span class="text-[10px] font-semibold uppercase tracking-widest text-stone-500">
+								<span class="app-chip text-[10px]">
 									{noticeToneLabel[notice.tone]}
 								</span>
-								<div class="mt-1 text-sm font-semibold text-stone-900">
+								<div class="mt-1 text-sm font-semibold text-[color:var(--app-ink)]">
 									{notice.message}
 								</div>
 							</div>
 							<button
-								class="h-8 rounded-full border border-stone-200 bg-white px-3 text-[11px] font-semibold text-stone-500 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:text-stone-900 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+								class="app-button app-focus h-8 px-3 text-[11px]"
 								type="button"
 								onClick={onDismissNotice}
 							>
 								关闭
 							</button>
 						</div>
+						<span aria-hidden="true" class="app-toast-progress" />
 					</div>
-				)}
-				{children}
-			</main>
+				</output>
+			)}
 			<button
 				aria-label="关闭导航"
-				class="fixed inset-0 z-30 bg-stone-900/40 opacity-0 transition-opacity duration-300 ease-in-out peer-checked:pointer-events-auto peer-checked:opacity-100 lg:hidden pointer-events-none"
+				class="fixed inset-0 z-30 bg-slate-950/40 opacity-0 transition-opacity duration-300 ease-in-out peer-checked:pointer-events-auto peer-checked:opacity-100 lg:hidden pointer-events-none"
 				type="button"
 				onClick={closeMobileNav}
 			/>
